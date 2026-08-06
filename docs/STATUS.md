@@ -8,6 +8,7 @@ Updated: 2026-08-06
 - The C++ source `dll/CHTheme.cpp` matches the latest staged list-overlay visibility revision.
 - `ButtonSubclass` is preserved in the complete Visual C++ project.
 - Current Clarion extension sources are under `clarion/`.
+- The maintained HTML guide is under `docs/` and is installed in the Clarion accessory documentation directory.
 
 ## Recently verified corrections
 
@@ -25,4 +26,3 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 ## Known build caveat
 
 The CompuHost project reports existing redirection-copy warnings for legacy DLL dependencies. These warnings predate the latest sheet corrections and are not emitted by `CHModernSheet`.
-

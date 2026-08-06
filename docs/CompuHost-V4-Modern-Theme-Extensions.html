@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CompuHost V4 Modern Theme Extensions — Clarion 10</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f7fb; --panel: #fff; --ink: #182333; --muted: #5d6b7c;
+      --line: #d8e0ea; --accent: #0877d1; --accent-soft: #e9f4ff;
+      --code: #101a27; --code-ink: #eaf2fa; --good: #16844b; --warn: #a86100;
+      --shadow: 0 10px 30px rgba(25, 45, 70, .08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 15px/1.6 "Segoe UI", Arial, sans-serif;
+    }
+    a { color: var(--accent); }
+    header {
+      color: white; padding: 44px max(24px, calc((100% - 1180px) / 2));
+      background: linear-gradient(130deg, #0c233b, #124e78 62%, #0877d1);
+    }
+    header h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 46px); line-height: 1.15; }
+    header p { margin: 0; max-width: 760px; font-size: 18px; opacity: .9; }
+    .meta { margin-top: 20px; font-size: 13px; opacity: .75; }
+    .layout {
+      display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 28px;
+      width: min(1180px, calc(100% - 32px)); margin: 28px auto 70px;
+    }
+    nav {
+      position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px);
+      overflow: auto; padding: 18px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; box-shadow: var(--shadow);
+    }
+    nav strong { display: block; margin-bottom: 10px; }
+    nav a {
+      display: block; padding: 6px 8px; border-radius: 6px;
+      color: var(--muted); text-decoration: none;
+    }
+    nav a:hover { color: var(--accent); background: var(--accent-soft); }
+    main { min-width: 0; }
+    section {
+      margin-bottom: 24px; padding: 26px 28px; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+    }
+    h2 { margin: 0 0 14px; font-size: 26px; line-height: 1.25; }
+    h3 { margin: 24px 0 8px; font-size: 19px; }
+    h4 { margin: 18px 0 6px; font-size: 16px; }
+    p { margin: 8px 0 14px; }
+    ul, ol { padding-left: 24px; }
+    li + li { margin-top: 5px; }
+    code {
+      padding: 1px 5px; border-radius: 4px; background: var(--accent-soft);
+      color: #07538e; font: 0.93em Consolas, "Courier New", monospace;
+    }
+    pre {
+      overflow: auto; margin: 12px 0 18px; padding: 16px 18px;
+      border-radius: 9px; background: var(--code); color: var(--code-ink);
+      font: 13px/1.55 Consolas, "Courier New", monospace; tab-size: 2;
+    }
+    pre code { padding: 0; background: transparent; color: inherit; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; }
+    th, td { padding: 9px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--accent-soft); }
+    .callout {
+      margin: 14px 0; padding: 13px 16px; border-left: 4px solid var(--accent);
+      border-radius: 6px; background: var(--accent-soft);
+    }
+    .good { border-left-color: var(--good); }
+    .warn { border-left-color: var(--warn); background: #fff6e8; }
+    .steps { counter-reset: step; list-style: none; padding: 0; }
+    .steps li { position: relative; padding: 0 0 18px 44px; }
+    .steps li::before {
+      counter-increment: step; content: counter(step); position: absolute; left: 0; top: 0;
+      width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
+      color: white; background: var(--accent); font-weight: 700;
+    }
+    .tag { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px; border-radius: 20px;
+      color: #07538e; background: var(--accent-soft); font-size: 12px; font-weight: 600; }
+    footer { color: var(--muted); text-align: center; padding: 0 20px 40px; }
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; max-height: none; columns: 2; }
+      nav strong { column-span: all; }
+    }
+    @media print {
+      :root { --bg: #fff; --panel: #fff; --ink: #000; --muted: #333; --line: #bbb; }
+      header { padding: 24px; background: none; color: #000; border-bottom: 2px solid #000; }
+      .layout { display: block; width: 100%; margin: 0; }
+      nav { display: none; }
+      section { break-inside: avoid; box-shadow: none; border: 0; border-bottom: 1px solid #bbb; border-radius: 0; }
+      pre { white-space: pre-wrap; color: #000; background: #f2f2f2; border: 1px solid #bbb; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CompuHost V4 Modern Theme Extensions</h1>
+    <p>Installation, configuration, runtime use, and troubleshooting for the Karaokeware Win32 modernization package for Clarion 10.</p>
+    <div class="meta">Applies to CHModernTheme.tpl, CHTheme.dll, ButtonSubclass.dll, and the CHModern helper classes · Updated August 6, 2026</div>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="Contents">
+      <strong>Contents</strong>
+      <a href="#overview">Overview</a>
+      <a href="#install">Installation</a>
+      <a href="#quick-start">Quick start</a>
+      <a href="#compuhost-v4">CompuHost V4 implementation</a>
+      <a href="#global">Global extension</a>
+      <a href="#window">Window extension</a>
+      <a href="#buttons">Buttons</a>
+      <a href="#lists">LIST controls</a>
+      <a href="#sheets">SHEET controls</a>
+      <a href="#options">OPTION controls</a>
+      <a href="#sliders">Sliders</a>
+      <a href="#menus">Menus</a>
+      <a href="#runtime">Runtime theme changes</a>
+      <a href="#api">Runtime API</a>
+      <a href="#deployment">Dependencies</a>
+      <a href="#testing">Test checklist</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </nav>
+
+    <main>
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>The package modernizes native Clarion windows while preserving normal Clarion events and control FEQs. It supports:</p>
+        <div>
+          <span class="tag">Dark and light themes</span><span class="tag">Multiple UI threads</span>
+          <span class="tag">Per-window backgrounds</span><span class="tag">Buttons and icons</span>
+          <span class="tag">LIST headers</span><span class="tag">SHEET tabs</span>
+          <span class="tag">OPTION controls</span><span class="tag">Sliders</span><span class="tag">Menus</span>
+        </div>
+        <p>The preferred workflow is template-driven. Add the Global extension once, then add the Window extension to each window procedure. Advanced extensions are only needed when automatic discovery is insufficient or a control needs an override.</p>
+        <div class="callout good"><strong>Clarion remains authoritative.</strong> Captions, icons, enabled/hidden state, focus, tab order, default buttons, accelerators, control placement, and application events continue to originate in Clarion.</div>
+      </section>
+
+      <section id="install">
+        <h2>Installation</h2>
+        <ol class="steps">
+          <li>Close running applications that are using <code>CHTheme.dll</code> or <code>ButtonSubclass.dll</code>.</li>
+          <li>Place <code>CHModernTheme.tpl</code> in the Clarion 10 accessory template <code>win</code> folder.</li>
+          <li>Place the DLLs in <code>accessory\bin</code>, import libraries in <code>accessory\lib</code>, and the <code>CHModern*.inc/.clw</code> files in <code>accessory\libsrc\win</code>.</li>
+          <li>In Clarion, open <strong>Tools → Template Registry</strong>, register or refresh <code>CHModernTheme.tpl</code>, then reopen the application if necessary.</li>
+          <li>Regenerate and rebuild the application.</li>
+        </ol>
+        <div class="callout">The registered repository DLLs are copied into the generated project when the application is generated. This refreshes older project-local copies and ensures the runtime DLLs are copied beside the executable.</div>
+      </section>
+
+      <section id="quick-start">
+        <h2>Quick start</h2>
+        <ol>
+          <li>Add <strong>CompuHost V4 Modern Theme – Global</strong> to Global Extensions.</li>
+          <li>Choose the default theme and global light/dark window backgrounds.</li>
+          <li>Add <strong>CompuHost V4 Modern Theme – Window</strong> to each window procedure.</li>
+          <li>Leave automatic controls, buttons, menus, LISTs, SHEETs, and OPTIONs enabled initially.</li>
+          <li>Use the exclusion lists for controls that must retain their original rendering or application colors.</li>
+          <li>Regenerate, rebuild, and test both themes.</li>
+        </ol>
+      </section>
+
+      <section id="compuhost-v4">
+        <h2>CompuHost V4 implementation</h2>
+        <p>CompuHost V4 uses the template-generated integration; application embeds are not required for ordinary theme, button, LIST, SHEET, OPTION, or slider operation.</p>
+        <ol>
+          <li>Add <strong>CompuHost V4 Modern Theme – Global</strong> once at the application level.</li>
+          <li>Add <strong>CompuHost V4 Modern Theme – Window</strong> to each participating window procedure, including the main frame and separately threaded or modal windows.</li>
+          <li>Leave automatic BUTTON, LIST, SHEET, OPTION, menu, and control discovery enabled unless a documented exclusion or advanced override is required.</li>
+          <li>For each native slider, add <strong>Slider REGION (manual configuration)</strong> and assign the Clarion REGION that owns its position and visibility.</li>
+          <li>Keep Clarion authoritative for saved SHEET selection and ordinary TAB contents. Restore a saved page with normal Clarion selection code; the helper mirrors that choice to the custom blue tab highlight.</li>
+          <li>Regenerate after updating the registered template, helper source, import libraries, or runtime DLLs, then perform a Win32 Release build.</li>
+        </ol>
+        <div class="callout good"><strong>Current ownership rules:</strong> Clarion controls ordinary TAB contents; the native strip mirrors Clarion except when the user clicks the strip; each slider overlay follows its assigned REGION and relevant TAB/container ancestors.</div>
+        <p>The current CompuHost V4 source project is <code>F:\Invicion Software Code\Clarion 10 Projects\CompuHost V4</code>. The permanent Git-backed extension sources and recovery documentation are maintained under <code>C:\Users\Glen\Documents\Codex\Projects\Clarion-Theme-Extension</code>.</p>
+      </section>
+
+      <section id="global">
+        <h2>Global extension</h2>
+        <table>
+          <thead><tr><th>Setting</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>Enforce Windows 10 version 1607 or newer</td><td>Stops startup when the detected Windows build is below the configured minimum.</td></tr>
+            <tr><td>Minimum Windows build</td><td>Defaults to build 14393.</td></tr>
+            <tr><td>Default application theme</td><td>Selects Dark or Light before the first themed window opens.</td></tr>
+            <tr><td>Light/Dark window background</td><td>Defines the application-wide default client-area colors.</td></tr>
+            <tr><td>Show compatibility error message</td><td>Shows the detected and required build before halting.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="window">
+        <h2>Window extension</h2>
+        <p>Add this extension to every frame, MDI child, threaded window, modal dialog, and ordinary window that should participate in application-wide theme changes.</p>
+        <table>
+          <thead><tr><th>Setting</th><th>Guidance</th></tr></thead>
+          <tbody>
+            <tr><td>Apply global default theme</td><td>Applies the current application theme when the window opens.</td></tr>
+            <tr><td>Override global window backgrounds</td><td>Enables individual light and dark backgrounds for this window while still following application theme changes.</td></tr>
+            <tr><td>Modernize standard controls</td><td>Attaches supported native controls discovered beneath the window.</td></tr>
+            <tr><td>Apply automatic Clarion control colors</td><td>Applies matching colors to ordinary Clarion controls.</td></tr>
+            <tr><td>Controls preserving application colors</td><td>Selected controls keep their application-defined color properties.</td></tr>
+            <tr><td>Modernize all BUTTON controls</td><td>Attaches the button renderer to discovered BUTTON controls.</td></tr>
+            <tr><td>BUTTON controls not modernized</td><td>Leaves selected buttons completely untouched.</td></tr>
+            <tr><td>Derive and modernize the Clarion menu</td><td>Builds the native menu definition, including nested menus and icons.</td></tr>
+            <tr><td>Discover LIST/SHEET/OPTION controls</td><td>Creates and maintains the corresponding helper instances automatically.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warn"><strong>Preserve colors versus exclusion:</strong> preserving colors keeps a control in the modernization path but retains its application colors. Excluding a button prevents the modern button renderer from attaching at all.</div>
+        <h3>Initialization and saved window positions</h3>
+        <p>The template generates window startup in this order: <code>OPEN(Window)</code>, <code>WinResize.Init(...)</code>, theme attachment and themed-control initialization, then <code>INIRestoreWindow(...)</code>. This allows <code>WindowResizeClass</code> to capture the original Clarion geometry before theme attachment or control refreshes occur.</p>
+        <p>After INI restoration, the extension requests the required final resize and theme refresh. Fully off-screen top-level windows are moved onto the primary monitor; MDI children are kept within their parent client area. Normal saved positions that remain visible are preserved.</p>
+      </section>
+
+      <section id="buttons">
+        <h2>BUTTON settings</h2>
+        <p>Use <strong>CompuHost V4 Modern Theme – BUTTON settings</strong> once per button requiring a role or metric override.</p>
+        <table>
+          <thead><tr><th>Role</th><th>Typical use</th></tr></thead>
+          <tbody>
+            <tr><td>Standard</td><td>Ordinary commands.</td></tr>
+            <tr><td>Primary</td><td>The principal action in a window.</td></tr>
+            <tr><td>Destructive</td><td>Stop, delete, cancel operation, or other hazardous action.</td></tr>
+            <tr><td>Toolbar</td><td>Compact toolbar-style commands.</td></tr>
+            <tr><td>Selected</td><td>A latched or currently selected command.</td></tr>
+            <tr><td>Success</td><td>Start, accept, go, save, or successful action.</td></tr>
+          </tbody>
+        </table>
+        <p>Optional metrics are corner radius, border width, and gradient use. Role colors do not change keyboard behavior: enabled buttons retain Tab focus, Space/Enter activation, default-button behavior, and Clarion accelerators.</p>
+
+        <h3>Captions, icons, and alignment</h3>
+        <ul>
+          <li>A file icon set in the designer and a Clarion icon handle are both supported.</li>
+          <li>Icon size scales from the button height.</li>
+          <li>Disabled icons are dimmed with the disabled button state.</li>
+          <li>Centered icon-and-caption buttons stack the icon above the caption.</li>
+          <li>Left/right buttons place the icon on the corresponding outer edge.</li>
+          <li>A multiline caption uses a real carriage-return/line-feed sequence.</li>
+        </ul>
+        <pre><code>! Multiline caption
+?GoButton{PROP:Text} = 'Start&lt;13,10&gt;Playback'
+DISPLAY(?GoButton)
+
+! Mnemonic: displays GO with O underlined and activates with Alt+O
+?GoButton{PROP:Text} = 'G&amp;O'
+DISPLAY(?GoButton)</code></pre>
+        <div class="callout warn">A global shortcut owned by another Windows application can intercept an Alt-key combination before Clarion receives it. Choose another mnemonic or change the conflicting global shortcut.</div>
+
+        <h3>Runtime alignment</h3>
+        <p>Runtime changes to Clarion <code>PROP:Left</code>, <code>PROP:Center</code>, or <code>PROP:Right</code> are not reliably reflected in the underlying Win32 style. Use:</p>
+        <pre><code>! Horizontal: -1 left, 0 center, 1 right
+! Vertical:   -1 top,  0 center, 1 bottom
+CHButton_SetContentAlignment(?GoButton{PROP:Handle}, 1, 0)
+DISPLAY(?GoButton)</code></pre>
+      </section>
+
+      <section id="lists">
+        <h2>LIST controls</h2>
+        <p>Automatic LIST discovery reads each Clarion FORMAT and creates a modern header. Set the default header height in the Window extension.</p>
+        <p>Use the <strong>LIST (advanced override)</strong> extension when a manually managed helper or a runtime column definition is required. Supply:</p>
+        <ul>
+          <li>A unique helper instance label.</li>
+          <li>The LIST FEQ.</li>
+          <li>A CSTRING containing the column definition.</li>
+          <li>Optional setup code and the header height.</li>
+        </ul>
+        <p>The helper handles header clicks, sort indicators, resized columns, column widths, and cleanup through the normal accept loop.</p>
+
+        <h3>Header-click events</h3>
+        <p>Clicking a themed header posts <code>EVENT:Accepted</code> to the source LIST. Read the clicked column from the automatically generated helper. The result is one-based; zero means the acceptance was not an unread header click. Reading the value clears it, so call <code>GetHeaderClick()</code> once and retain the result.</p>
+        <pre><code>ClickedColumn LONG
+
+! In the EVENT:Accepted handling for ?DJPlaylist
+OF ?DJPlaylist
+  ClickedColumn = CHModernTheme:List:DJPlaylist.GetHeaderClick()
+  IF ClickedColumn
+    CASE ClickedColumn
+    OF 1
+      ! Title header clicked
+    OF 2
+      ! Duration header clicked
+    END
+  ELSE
+    ! Ordinary LIST acceptance, not a header click
+  END</code></pre>
+        <div class="callout"><strong>Automatic helper naming:</strong> a LIST named <code>?DJPlaylist</code> uses <code>CHModernTheme:List:DJPlaylist</code>. Do not call a global <code>GetHeaderClick</code> procedure; it is a method of that generated helper instance.</div>
+
+        <h3>Resizable and fixed columns</h3>
+        <p>During initialization, the helper reads <code>ListFEQ{PROPLIST:Resize,Column}</code> for every column and passes that setting to the themed header. A divider is draggable only when the preceding Clarion column is resizable. Columns configured as non-resizable in the LIST FORMAT/designer therefore remain fixed without application embeds.</p>
+        <p>When a permitted divider is dragged, the helper writes the new width back to <code>PROPLIST:Width</code> and refreshes the LIST. This keeps Clarion's column definition authoritative.</p>
+
+        <h3>Scrollbars</h3>
+        <p>Vertical LIST scrolling follows the themed Clarion LIST rendering. Clarion creates a horizontal scrollbar as a separate runtime-managed Windows control whose private drag loop repaints native system colors. Paint overlays caused visible flashing while dragging and are intentionally disabled in the stable DLL. Avoid horizontal LIST scrollbars where practical. A fully themed horizontal bar will require a future complete custom scrollbar replacement.</p>
+      </section>
+
+      <section id="sheets">
+        <h2>SHEET controls</h2>
+        <p>Automatic SHEET discovery derives tab captions and TAB FEQs directly from the window. It maintains the custom strip position, selected highlight, tab visibility/enabled state, resizing, runtime captions, content background, and theme changes.</p>
+        <p>Clarion remains solely responsible for ordinary TAB-content visibility. A programmatic or saved Clarion selection is mirrored to the custom strip. Only a genuine click notification from the custom strip drives <code>PROP:ChoiceFEQ</code> back into Clarion. A zero <code>PROP:ChoiceFEQ</code> is never forced to the first TAB.</p>
+        <p>The Window extension supplies the default header height and light/dark content backgrounds. Add <strong>SHEET (advanced override)</strong> only when a particular SHEET needs different content backgrounds.</p>
+        <pre><code>! Examples using the automatically generated helper name
+CHModernTheme:Sheet:SHEET1.SetSelected(2)
+CHModernTheme:Sheet:SHEET1.SetEnabled(3,FALSE)
+CHModernTheme:SheetLabels:SHEET1 = 'General|Playback|Advanced'
+CHModernTheme:Sheet:SHEET1.SetLabels(CHModernTheme:SheetLabels:SHEET1)</code></pre>
+        <div class="callout">The helper supports up to 20 mapped TAB controls per SHEET. Do not add application code that manually hides all controls belonging to inactive TABs; normal Clarion SHEET behavior is authoritative.</div>
+      </section>
+
+      <section id="options">
+        <h2>OPTION and RADIO controls</h2>
+        <p>Automatic OPTION discovery derives RADIO captions and FEQs. The flat modern renderer tracks checked, unchecked, focused, and disabled states while the Clarion OPTION value remains authoritative.</p>
+        <p>Use <strong>Flat OPTION (advanced override)</strong> for a manually selected OPTION control or helper instance. Up to 20 RADIO choices can be mapped per helper.</p>
+      </section>
+
+      <section id="sliders">
+        <h2>Slider REGION extension</h2>
+        <p>The slider is hosted over a Clarion REGION so the application keeps a stable FEQ and resize anchor. Configure orientation, minimum, maximum, initial value, step, and separate track/fill colors for light and dark themes.</p>
+        <pre><code>VolumeSlider.SetRange(0,100)
+VolumeSlider.SetValue(65)
+VolumeSlider.SetStep(5)
+VolumeSlider.SetEnabled(TRUE)
+CurrentVolume = VolumeSlider.GetValue()
+
+VolumeSlider.SetColors(LightTrack,LightFill,DarkTrack,DarkFill)</code></pre>
+        <p>The knob is rendered independently from the configured track and fill colors. Keyboard input and minimum/maximum positions are handled by the native slider window.</p>
+        <p>The Win32 slider is a child of the Clarion window rather than the REGION itself, so it cannot inherit TAB clipping automatically. The helper starts the overlay hidden, then evaluates the assigned REGION, its <code>PROP:Hide</code> state, its Clarion parent chain, and the enclosing SHEET's <code>PROP:ChoiceFEQ</code>. This prevents EQ sliders from appearing on InstaTunes, AudioBits, VideoBits, or another inactive page without changing the SHEET selection or hiding ordinary controls.</p>
+      </section>
+
+      <section id="menus">
+        <h2>Menus</h2>
+        <p>When enabled, the Window extension derives the native Clarion menu recursively. It preserves items, nested submenus, separators, disabled and checked states, keyboard navigation, and configured menu icons.</p>
+        <p>Menu colors are theme colors; they do not derive from a custom window background.</p>
+      </section>
+
+      <section id="runtime">
+        <h2>Runtime theme changes</h2>
+        <p>Use the application wrapper to change every attached window, including windows on other Clarion UI threads:</p>
+        <pre><code>! Dark
+CHModernTheme_SetApplicationTheme(0,CHTHEME_DARK)
+
+! Light
+CHModernTheme_SetApplicationTheme(0,CHTHEME_LIGHT)</code></pre>
+        <p>The DLL distributes the change safely to each owning UI thread. Each window retains its individual extension options, exclusions, and background overrides. Windows opened after a change read the current application mode when attached.</p>
+        <p>To repaint a specific attached window without changing its mode:</p>
+        <pre><code>CHModernTheme_Refresh(0{PROP:Handle})</code></pre>
+      </section>
+
+      <section id="api">
+        <h2>Runtime API reference</h2>
+        <h3>Theme</h3>
+        <table>
+          <thead><tr><th>Function</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>CHModernTheme_SetApplicationTheme(hwnd,mode)</code></td><td>Sets the application mode, synchronizes the button theme, and redraws.</td></tr>
+            <tr><td><code>CHTheme_GetMode(hwnd)</code></td><td>Returns the active theme mode.</td></tr>
+            <tr><td><code>CHTheme_SetBackgroundColors(hwnd,light,dark)</code></td><td>Sets backgrounds for one attached window.</td></tr>
+            <tr><td><code>CHTheme_SetAccent(hwnd,color)</code></td><td>Changes the accent for an attached window.</td></tr>
+            <tr><td><code>CHTheme_ForceRedraw(hwnd)</code></td><td>Forces a complete themed repaint.</td></tr>
+          </tbody>
+        </table>
+        <h3>Buttons</h3>
+        <table>
+          <thead><tr><th>Function</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>CHButton_SetRole(hwnd,role)</code></td><td>Applies Standard, Primary, Destructive, Toolbar, Selected, or Success.</td></tr>
+            <tr><td><code>CHButton_SetColors(...)</code></td><td>Overrides normal, hover, pressed, text, and border colors.</td></tr>
+            <tr><td><code>CHButton_SetDisabledColors(...)</code></td><td>Overrides disabled fill, text, and border colors.</td></tr>
+            <tr><td><code>CHButton_SetMetrics(hwnd,radius,border,gradient)</code></td><td>Overrides shape and gradient.</td></tr>
+            <tr><td><code>CHButton_SetIcon(hwnd,icon,width,gap)</code></td><td>Uses an existing icon handle.</td></tr>
+            <tr><td><code>CHButton_SetIconFile(hwnd,name,width,gap)</code></td><td>Loads a file-based icon.</td></tr>
+            <tr><td><code>CHButton_SetContentAlignment(hwnd,horizontal,vertical)</code></td><td>Changes runtime content alignment.</td></tr>
+            <tr><td><code>CHButton_Attach/Detach(hwnd)</code></td><td>Attaches or removes modernization for one button.</td></tr>
+          </tbody>
+        </table>
+        <h3>Equates</h3>
+        <pre><code>CHTHEME_DARK               EQUATE(0)
+CHTHEME_DARK_HIGH_CONTRAST EQUATE(1)
+CHTHEME_LIGHT              EQUATE(2)
+
+CHBUTTON_ROLE_STANDARD     EQUATE(0)
+CHBUTTON_ROLE_PRIMARY      EQUATE(1)
+CHBUTTON_ROLE_DESTRUCTIVE  EQUATE(2)
+CHBUTTON_ROLE_TOOLBAR      EQUATE(3)
+CHBUTTON_ROLE_SELECTED     EQUATE(4)
+CHBUTTON_ROLE_SUCCESS      EQUATE(5)</code></pre>
+      </section>
+
+      <section id="deployment">
+        <h2>Deployment</h2>
+        <h3>Files required with the deployed application</h3>
+        <p>The following runtime files must be installed in the same folder as the compiled Clarion application executable:</p>
+        <table>
+          <thead><tr><th>File</th><th>Required</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>CHTheme.dll</code></td><td>Yes</td><td>Provides window, menu, LIST, SHEET, OPTION, slider, theme propagation, and repaint support.</td></tr>
+            <tr><td><code>ButtonSubclass.dll</code></td><td>Yes</td><td>Provides modern BUTTON rendering, roles, icons, focus indication, runtime alignment, and button state handling.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout good"><strong>Deployment rule:</strong> distribute both DLLs beside every EXE that uses these extensions. The customer does not need the template, import libraries, include files, helper source, PDB files, or Visual Studio runtime project files.</div>
+
+        <h3>Application-owned resources</h3>
+        <p>Also deploy any resources referenced by the application at runtime:</p>
+        <ul>
+          <li>File-based <code>.ico</code> files used by buttons, unless they are embedded or already copied by the application project.</li>
+          <li>Other images, help files, configuration files, or application data required by the Clarion program.</li>
+        </ul>
+        <p>Clarion API icons such as <code>ICON:Hand</code> do not require a separate icon file.</p>
+
+        <h3>Files required only on the development computer</h3>
+        <p>The Global extension adds the required libraries, helper source files, and DLL deployment items to the generated project. During generation it first refreshes project-local copies from the registered Clarion accessory repository.</p>
+        <table>
+          <thead><tr><th>Development repository item</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><code>accessory\bin\CHTheme.dll</code></td><td>Window, menu, LIST, SHEET, OPTION, and slider theming runtime.</td></tr>
+            <tr><td><code>accessory\bin\ButtonSubclass.dll</code></td><td>Modern button renderer.</td></tr>
+            <tr><td><code>accessory\lib\CHTheme.lib</code>, <code>ButtonSubclass.lib</code></td><td>Clarion linker import libraries.</td></tr>
+            <tr><td><code>accessory\libsrc\win\CHModern*.inc/.clw</code></td><td>Clarion declarations and helper classes.</td></tr>
+            <tr><td><code>accessory\template\win\CHModernTheme.tpl</code></td><td>Application, window, and control extension definitions used during generation.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Release checklist</h3>
+        <ol>
+          <li>Install the current registered DLLs and support files into the Clarion accessory repository.</li>
+          <li>Regenerate the application so the extension refreshes its project-local dependencies.</li>
+          <li>Perform a clean Release build.</li>
+          <li>Confirm <code>CHTheme.dll</code> and <code>ButtonSubclass.dll</code> are beside the Release EXE.</li>
+          <li>Include both DLLs in the installer or deployment package.</li>
+          <li>Include any file-based button icons or other application-owned resources.</li>
+          <li>Test the packaged application on a computer that does not have the Clarion development environment installed.</li>
+        </ol>
+        <div class="callout good">After updating a registered DLL or helper source, regenerate the application before rebuilding. A normal build alone may continue using an older project-local copy.</div>
+      </section>
+
+      <section id="testing">
+        <h2>Recommended test checklist</h2>
+        <ul>
+          <li>Dark → Light → Dark repeatedly with multiple windows open.</li>
+          <li>Frame, MDI child, separate threaded window, and modal dialog.</li>
+          <li>Open a new window after changing the theme.</li>
+          <li>Minimize/restore, maximize, and rapid resizing.</li>
+          <li>Button focus by Tab; activation by Space, Enter, default button, and Alt mnemonic.</li>
+          <li>Runtime captions, icons, enabled/hidden state, resizing, roles, colors, and alignment.</li>
+          <li>LIST selection, disabled state, vertical scrolling, many rows, header-click events, resizable columns, and fixed columns.</li>
+          <li>SHEET tab selection, disabled/hidden tabs, captions, resizing, and content backgrounds.</li>
+          <li>Restart with each CompuHost V4 TAB saved in turn; confirm the restored contents and blue custom-strip highlight agree immediately.</li>
+          <li>Restart on a non-slider TAB; confirm its ordinary controls remain visible and all EQ slider overlays remain hidden.</li>
+          <li>Switch repeatedly between EQ, InstaTunes, AudioBits, and VideoBits after hovering, focusing, or dragging a slider.</li>
+          <li>OPTION/RADIO checked, unchecked, disabled, and focused states.</li>
+          <li>Horizontal/vertical sliders, keyboard movement, range endpoints, disabled state, and runtime colors.</li>
+          <li>Menus with disabled/checked items, separators, submenus, keyboard navigation, and icons.</li>
+          <li>DPI at 100%, 125%, 150%, and 200%; monitor move and Remote Desktop reconnect.</li>
+          <li>An excluded control beside a themed equivalent.</li>
+          <li>Application-defined colors and fonts with selective preservation.</li>
+        </ul>
+      </section>
+
+      <section id="troubleshooting">
+        <h2>Troubleshooting</h2>
+        <h3>The DLL in a project is old</h3>
+        <p>Confirm the newest DLL is in <code>accessory\bin</code>, then regenerate the application. The Global extension refreshes the project-local dependency during generation.</p>
+        <h3>Duplicate symbols</h3>
+        <p>Remove older button/theming extensions or manually added copies of the same import library. The modern Global extension already adds its dependencies.</p>
+        <h3>A window changes only when activated</h3>
+        <p>Ensure the Window extension is present on that procedure and that the project has been regenerated with the current template and DLLs.</p>
+        <h3>A SHEET background changes only after another repaint</h3>
+        <p>Regenerate and verify that both the current <code>CHModernSheet</code> helper and <code>CHTheme.dll</code> were copied into the project/output.</p>
+        <h3>The restored TAB contents are correct but the blue highlight is wrong</h3>
+        <p>Regenerate with the current <code>CHModernSheet.clw</code>. The current helper mirrors Clarion's programmatic or saved <code>PROP:ChoiceFEQ</code> to the native strip while reserving strip-to-Clarion changes for genuine strip-click notifications.</p>
+        <h3>The selected TAB is blank until another TAB is clicked</h3>
+        <p>Verify that the current <code>CHModernSheet.clw</code> is in both the Clarion library source and generated project. Older revisions manually changed <code>PROP:Hide</code> on ordinary TAB controls during registration; the current helper leaves content visibility to Clarion.</p>
+        <h3>Sliders appear on TABs that do not own them</h3>
+        <p>Confirm every slider extension is assigned to its correct Clarion REGION and that the project contains the current <code>CHModernSlider.clw/.inc</code>. The helper evaluates the REGION and enclosing TAB/SHEET hierarchy before showing the native overlay.</p>
+        <h3>An Alt accelerator activates another application</h3>
+        <p>The other application owns a global shortcut. Change that shortcut or choose a different mnemonic. Also verify that runtime code does not overwrite the designer caption with a differently placed ampersand.</p>
+        <h3>Runtime left/center/right has no effect</h3>
+        <p>Call <code>CHButton_SetContentAlignment</code>; Clarion runtime alignment properties do not reliably update the native button style after attachment.</p>
+      </section>
+    </main>
+  </div>
+  <footer>CompuHost V4 Modern Theme Extensions · Karaokeware · Clarion 10</footer>
+</body>
+</html>

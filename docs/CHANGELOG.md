@@ -9,4 +9,4 @@
 - Returned ordinary TAB-content visibility ownership to Clarion.
 - Added two-way selection synchronization between restored Clarion choices and the custom strip.
 - Preserved REGION/ancestor-based visibility for native slider overlays.
-
+- Updated the installed Modern Theme Extensions HTML documentation with a concise CompuHost V4 implementation guide, current SHEET ownership rules, slider visibility behavior, verification steps, and troubleshooting guidance.
