@@ -1,0 +1,14 @@
+LIBRARY "ButtonSubclass"
+EXPORTS
+    CHButton_Attach            = _CHButton_Attach@4
+    CHButton_AttachAll         = _CHButton_AttachAll@4
+    CHButton_Detach            = _CHButton_Detach@4
+    CHButton_DetachAll         = _CHButton_DetachAll@0
+    CHButton_SetColors         = _CHButton_SetColors@36
+    CHButton_SetDisabledColors = _CHButton_SetDisabledColors@20
+    CHButton_SetIcon           = _CHButton_SetIcon@16
+    CHButton_SetIconFile       = _CHButton_SetIconFile@16
+    CHButton_SetContentAlignment = _CHButton_SetContentAlignment@12
+    CHButton_SetMetrics        = _CHButton_SetMetrics@16
+    CHButton_SetRole           = _CHButton_SetRole@8
+    CHButton_SetTheme          = _CHButton_SetTheme@4

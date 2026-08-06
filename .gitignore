@@ -1,0 +1,36 @@
+# Visual Studio and C++ build output
+dll/bin/
+dll/obj/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.obj
+*.tlog
+*.lastbuildstate
+
+# Clarion build output and generated executables
+*.exe
+*.map
+*.rsc
+*.csm
+
+# Historical Clarion copies bundled beside the Visual C++ build
+# (the authoritative versions live under clarion/)
+dll/CHModern*.clw
+dll/CHModern*.inc
+dll/CHModern*.tpl
+
+# Runtime, logs, and temporary files
+*.log
+*.tmp
+*.bak
+Thumbs.db
+.DS_Store
+
+# Portable recovery archives are stored on NAS, not in Git
+*.zip

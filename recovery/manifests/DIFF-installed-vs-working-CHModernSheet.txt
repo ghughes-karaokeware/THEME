@@ -1,0 +1,25 @@
+﻿diff --git "a/F:\\SoftVelocity\\Clarion 10\\accessory\\libsrc\\win\\CHModernSheet.clw" "b/C:\\Users\\Glen\\Documents\\Codex\\2026-07-25\\task-title-continue-compuhost-v4-clarion\\CHModernSheet.clw"
+index da9dcba..b932928 100644
+--- "a/F:\\SoftVelocity\\Clarion 10\\accessory\\libsrc\\win\\CHModernSheet.clw"	
++++ "b/C:\\Users\\Glen\\Documents\\Codex\\2026-07-25\\task-title-continue-compuhost-v4-clarion\\CHModernSheet.clw"
+@@ -101,18 +101,11 @@ ScanTab                 LONG
+   END
+   ! Clarion can establish the SHEET's initial choice before the generated
+   ! SetTabFEQ calls register its TABs. Do not leave the custom strip fixed on
+-  ! tab 1: adopt Clarion's real choice and resynchronize contents after every
++  ! Adopt Clarion's real choice and resynchronize contents after every
+   ! registration so controls belonging to later-registered tabs are hidden too.
++  ! A zero ChoiceFEQ is left untouched: only Clarion may choose the initial TAB.
+   IF SELF.Active AND SELF.StripHwnd AND SELF.SheetFEQ
+     ChoiceFEQ = SELF.SheetFEQ{PROP:ChoiceFEQ}
+-    ! During initial generated registration Clarion can leave ChoiceFEQ at zero
+-    ! even though the first TAB is the displayed design-time page. Establish
+-    ! that initial choice once so the first visibility synchronization does not
+-    ! hide every page. A nonzero Clarion choice is always preserved.
+-    IF ChoiceFEQ = 0 AND SELF.TabFEQ[1]
+-      ChoiceFEQ = SELF.TabFEQ[1]
+-      SELF.SheetFEQ{PROP:ChoiceFEQ} = ChoiceFEQ
+-    END
+     LOOP ScanTab = 1 TO 20
+       IF SELF.TabFEQ[ScanTab] AND SELF.TabFEQ[ScanTab] = ChoiceFEQ
+         Selected = ScanTab

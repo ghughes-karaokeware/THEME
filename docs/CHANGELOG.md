@@ -1,0 +1,12 @@
+# Changelog
+
+## 2026-08-06
+
+- Consolidated the complete Theme and ButtonSubclass C++ projects into a permanent Codex workspace.
+- Consolidated the latest verified Clarion wrapper and template sources.
+- Preserved staged C++ milestones and immutable recovery manifests.
+- Removed the forced first-TAB fallback.
+- Returned ordinary TAB-content visibility ownership to Clarion.
+- Added two-way selection synchronization between restored Clarion choices and the custom strip.
+- Preserved REGION/ancestor-based visibility for native slider overlays.
+
