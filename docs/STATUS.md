@@ -36,6 +36,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - The proof-of-concept DLL has not been installed into CompuHost or the Clarion accessory directories.
 - The first visual-refinement pass preserves ABI `00010000H` while enabling native dark-window/control styling, preventing value-label clipping, correcting the advanced-panel heading, and adding a functional Back button that returns from the third panel to the selected page.
 - Value-label columns are measured from the active panel's captions using the dialog font, remain aligned within each panel, and preserve a minimum 100-pixel input width.
+- After using Back from a nested detail panel, the selected page exposes an `Advanced Settings...` button that reopens that same third panel.
 - Win32 Release and the 32-bit ABI/round-trip harness both pass after the visual-refinement changes.
 
 ## Known build caveat

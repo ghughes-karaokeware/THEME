@@ -22,6 +22,7 @@ constexpr wchar_t kDialogClass[] = L"CHTheme.StructuredDialog";
 constexpr int kCategoryListId = 100;
 constexpr int kPageListId = 101;
 constexpr int kBackButtonId = 102;
+constexpr int kDetailButtonId = 103;
 constexpr int kFirstDynamicId = 1000;
 
 struct Option { std::string value; std::wstring caption; };
@@ -415,6 +416,11 @@ void Render(DialogData& data)
     int y = 82;
     for (size_t index : pageChildren)
         AddValueControl(data, data.entries[index], y, 474, 350, pageLabelWidth);
+    HWND detailButton = GetDlgItem(data.window, kDetailButtonId);
+    SetWindowPos(detailButton, nullptr, 474, y + 4, 150, 28,
+        SWP_NOZORDER | SWP_NOACTIVATE);
+    ShowWindow(detailButton, data.selectedDetail && data.detailSuppressed
+        ? SW_SHOWNA : SW_HIDE);
     if (hasDetail) {
         RuntimeEntry* detail = FindEntry(data, data.selectedDetail);
         if (detail) {
@@ -534,6 +540,8 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             758, 500, 76, 30, IDCANCEL);
         AddWindow(*data, 0, L"BUTTON", L"< Back", WS_TABSTOP | BS_PUSHBUTTON,
             842, 500, 76, 30, kBackButtonId);
+        AddWindow(*data, 0, L"BUTTON", L"Advanced Settings...",
+            WS_TABSTOP | BS_PUSHBUTTON, 474, 120, 150, 28, kDetailButtonId);
         PopulateList(data->categories, *data, 0);
         data->selectedCategory = SelectedListId(data->categories);
         PopulateList(data->pages, *data, data->selectedCategory);
@@ -555,6 +563,12 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         if (id == kBackButtonId && notification == BN_CLICKED) {
             ReadAllControls(*data);
             data->detailSuppressed = true;
+            Render(*data);
+            return 0;
+        }
+        if (id == kDetailButtonId && notification == BN_CLICKED) {
+            ReadAllControls(*data);
+            data->detailSuppressed = false;
             Render(*data);
             return 0;
         }

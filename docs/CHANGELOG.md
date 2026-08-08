@@ -9,6 +9,7 @@
 - Added a functional third-panel Back button; changing category or page makes the applicable detail panel available again.
 - Increased value-label height and enabled end ellipsis to prevent multi-line clipping into adjacent controls.
 - Replaced the fixed value-label width with font-aware per-panel measurement, keeping each panel aligned while reserving at least 100 pixels for input controls.
+- Added an `Advanced Settings...` button after returning from a nested detail panel so the third panel can be reopened without changing the selected page.
 - Rebuilt Win32 Release with zero warnings and zero errors and passed the 32-bit ABI/validation/round-trip harness.
 
 ## 2026-08-06
