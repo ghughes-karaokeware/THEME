@@ -304,13 +304,37 @@ void ApplyDependencies(DialogData& data)
     }
 }
 
+int LabelWidth(DialogData& data, const std::vector<size_t>& children,
+    int minimum, int panelWidth)
+{
+    int measured = minimum;
+    HDC dc = GetDC(data.window);
+    HFONT oldFont = dc && data.font
+        ? static_cast<HFONT>(SelectObject(dc, data.font)) : nullptr;
+    if (dc) {
+        for (size_t index : children) {
+            const RuntimeEntry& entry = data.entries[index];
+            if (!IsValueType(entry.definition.type) ||
+                entry.definition.type == CHUI_CHECKBOX ||
+                entry.definition.type == CHUI_RADIO) continue;
+            const std::wstring caption = Utf8ToWide(entry.definition.caption);
+            SIZE extent{};
+            if (GetTextExtentPoint32W(dc, caption.c_str(),
+                static_cast<int>(caption.size()), &extent))
+                measured = std::max(measured, static_cast<int>(extent.cx) + 16);
+        }
+        if (oldFont) SelectObject(dc, oldFont);
+        ReleaseDC(data.window, dc);
+    }
+    return std::min(measured, panelWidth - 118);
+}
+
 void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
-    int left, int width, bool detail)
+    int left, int width, int labelWidth)
 {
     const int id = kFirstDynamicId + static_cast<int>(entry.sourceIndex);
     const std::wstring caption = Utf8ToWide(entry.definition.caption);
     const std::wstring value = Utf8ToWide(entry.workingValue.c_str());
-    const int labelWidth = detail ? 138 : 158;
     const int controlX = left + labelWidth;
     const int controlWidth = std::max(100, width - labelWidth - 18);
 
@@ -340,7 +364,7 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
         SendMessageW(entry.control, BM_SETCHECK,
             entry.workingValue == "1" ? BST_CHECKED : BST_UNCHECKED, 0);
     } else {
-        AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT | SS_ENDELLIPSIS,
+        AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT,
             left, y + 5, labelWidth - 8, 24, id + 600);
         if (entry.definition.type == CHUI_DROPDOWN) {
             entry.control = AddWindow(data, 0, WC_COMBOBOXW, L"",
@@ -386,9 +410,11 @@ void Render(DialogData& data)
     data.selectedDetail = details.empty() ? 0 : data.entries[details.front()].definition.id;
     const bool hasDetail = data.selectedDetail != 0 && !data.detailSuppressed;
 
+    const auto pageChildren = Children(data, data.selectedPage, false);
+    const int pageLabelWidth = LabelWidth(data, pageChildren, 158, 350);
     int y = 82;
-    for (size_t index : Children(data, data.selectedPage, false))
-        AddValueControl(data, data.entries[index], y, 474, 350, false);
+    for (size_t index : pageChildren)
+        AddValueControl(data, data.entries[index], y, 474, 350, pageLabelWidth);
     if (hasDetail) {
         RuntimeEntry* detail = FindEntry(data, data.selectedDetail);
         if (detail) {
@@ -397,9 +423,12 @@ void Render(DialogData& data)
             AddWindow(data, 0, L"STATIC", heading.c_str(), SS_LEFT,
                 842, 48, 336, 24, kFirstDynamicId + 550);
         }
+        const auto detailChildren = Children(data, data.selectedDetail, false);
+        const int detailLabelWidth = LabelWidth(data, detailChildren, 138, 340);
         y = 82;
-        for (size_t index : Children(data, data.selectedDetail, false))
-            AddValueControl(data, data.entries[index], y, 842, 340, true);
+        for (size_t index : detailChildren)
+            AddValueControl(data, data.entries[index], y, 842, 340,
+                detailLabelWidth);
     }
     SetWindowPos(data.window, nullptr, 0, 0, hasDetail ? 1220 : 850, 590,
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
