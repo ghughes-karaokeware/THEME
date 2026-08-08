@@ -34,6 +34,8 @@
   #RUN('cmd.exe /c copy /Y "' & %cwroot & '\accessory\libsrc\win\CHModernSheet.inc" "CHModernSheet.inc"'),WAIT
   #RUN('cmd.exe /c copy /Y "' & %cwroot & '\accessory\libsrc\win\CHModernOption.clw" "CHModernOption.clw"'),WAIT
   #RUN('cmd.exe /c copy /Y "' & %cwroot & '\accessory\libsrc\win\CHModernOption.inc" "CHModernOption.inc"'),WAIT
+  #RUN('cmd.exe /c copy /Y "' & %cwroot & '\accessory\libsrc\win\CHStructuredDialogTypes.inc" "CHStructuredDialogTypes.inc"'),WAIT
+  #RUN('cmd.exe /c copy /Y "' & %cwroot & '\accessory\libsrc\win\CHPromoDesignerTypes.inc" "CHPromoDesignerTypes.inc"'),WAIT
   #PROJECT('CHTheme.lib')
   #PROJECT('ButtonSubclass.lib')
   #PROJECT('None(CHTheme.dll),CopyToOutputDirectory=Always')
@@ -50,6 +52,8 @@
   INCLUDE('CHModernSlider.inc'),ONCE
   INCLUDE('CHModernSheet.inc'),ONCE
   INCLUDE('CHModernOption.inc'),ONCE
+  INCLUDE('CHStructuredDialogTypes.inc'),ONCE
+  INCLUDE('CHPromoDesignerTypes.inc'),ONCE
 #ENDAT
 
 #AT(%GlobalMap),PRIORITY(3500)
@@ -93,6 +97,20 @@
     CHSlider_SetStep(LONG SliderHwnd,LONG Step),LONG,PASCAL,RAW,NAME('CHSlider_SetStep')
     CHSlider_SetEnabled(LONG SliderHwnd,LONG Enabled),LONG,PASCAL,RAW,NAME('CHSlider_SetEnabled')
     CHSlider_SetColors(LONG SliderHwnd,LONG LightTrack,LONG LightFill,LONG DarkTrack,LONG DarkFill),LONG,PASCAL,RAW,NAME('CHSlider_SetColors')
+    CHUI_GetAbiVersion(),ULONG,PASCAL,RAW,NAME('CHUI_GetAbiVersion')
+    CHUI_GetHeaderSize(),ULONG,PASCAL,RAW,NAME('CHUI_GetHeaderSize')
+    CHUI_GetEntrySize(),ULONG,PASCAL,RAW,NAME('CHUI_GetEntrySize')
+    CHUI_ValidateDialog(LONG HeaderAddr,LONG EntriesAddr),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialog')
+    CHUI_OpenDialog(LONG OwnerHwnd,LONG HeaderAddr,LONG EntriesAddr,LONG CallbackHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
+    CHUI_ConsumeCompletion(LONG CallbackHwnd,*ULONG InstanceID,*LONG Result),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
+    CHUI_ConsumeChange(LONG CallbackHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeChange')
+    CHUI_ConsumeAction(LONG CallbackHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeAction')
+    CHUI_SetEntryValue(ULONG InstanceID,ULONG EntryID,*CSTRING Value),LONG,PASCAL,RAW,NAME('CHUI_SetEntryValue')
+    CHPT_GetAbiVersion(),ULONG,PASCAL,RAW,NAME('CHPT_GetAbiVersion')
+    CHPT_GetDataSize(),ULONG,PASCAL,RAW,NAME('CHPT_GetDataSize')
+    CHPT_ValidateData(LONG DataAddress),LONG,PASCAL,RAW,NAME('CHPT_ValidateData')
+    CHPT_OpenDesigner(LONG OwnerHwnd,LONG DataAddress,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHPT_OpenDesigner')
+    CHPT_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DesignerResult),LONG,PASCAL,RAW,NAME('CHPT_ConsumeCompletion')
   END
   MODULE('ButtonSubclass.dll')
     CHButton_SetTheme(LONG Theme),LONG,PASCAL,RAW,NAME('CHButton_SetTheme')

@@ -27,8 +27,8 @@ body{margin:0;background:#f4f7fb;color:#182333;font:15px/1.55 "Segoe UI",Arial,s
 <h2>CompuHost V4 implementation - concise checklist</h2>
 <ol class="steps">
 <li>Confirm the release-candidate <code>CHTheme.dll</code>, <code>CHTheme.lib</code>, and <code>CHPromoDesignerTypes.inc</code> are in the CompuHost V4 project/runtime locations.</li>
-<li>Add <code>INCLUDE('CHPromoDesignerTypes.inc')</code> to Global Data.</li>
-<li>Add the five <code>CHPT_...</code> imports to the existing <code>MODULE('CHTheme.dll')</code> in the Global MAP.</li>
+<li>Confirm the <strong>CompuHost V4 Modern Theme - Global</strong> extension is present. It generates the Promo include and all five <code>CHPT_...</code> MAP imports automatically.</li>
+<li>Regenerate once after installing the updated template so its generated declarations and project-copy directives are refreshed.</li>
 <li>Add the exact 4,256-byte <code>PromoData</code> group and state variables to the procedure that owns the existing Promo-Trailer command.</li>
 <li>Reuse an existing hidden callback button or add <code>?CHUIComplete</code>; it must remain alive while the designer is open.</li>
 <li>In the existing Promo-Trailer command's <code>EVENT:Accepted</code>, prepare the data, validate the ABI, and call <code>CHPT_OpenDesigner</code>.</li>
@@ -52,16 +52,16 @@ body{margin:0;background:#f4f7fb;color:#182333;font:15px/1.55 "Segoe UI",Arial,s
 </section>
 
 <section>
-<h2>2. Global include and MAP</h2>
-<p>Add to <strong>Global Properties &gt; Embeds &gt; Global Data</strong>:</p>
-<pre><code>  INCLUDE('CHPromoDesignerTypes.inc')</code></pre>
-<p>Add these declarations to the existing <code>MODULE('CHTheme.dll')</code> inside the Global MAP:</p>
+<h2>2. Template-generated include and MAP</h2>
+<p>The installed <strong>CompuHost V4 Modern Theme - Global</strong> extension generates the following include and MAP declarations. Do not duplicate them in CompuHost V4 embeds:</p>
+<pre><code>INCLUDE('CHPromoDesignerTypes.inc'),ONCE</code></pre>
 <pre><code>CHPT_GetAbiVersion(),ULONG,PASCAL,RAW,NAME('CHPT_GetAbiVersion')
 CHPT_GetDataSize(),ULONG,PASCAL,RAW,NAME('CHPT_GetDataSize')
 CHPT_ValidateData(LONG DataAddress),LONG,PASCAL,RAW,NAME('CHPT_ValidateData')
 CHPT_OpenDesigner(LONG OwnerHwnd,LONG DataAddress,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHPT_OpenDesigner')
 CHPT_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DesignerResult),LONG,PASCAL,RAW,NAME('CHPT_ConsumeCompletion')</code></pre>
-<p class="note">Keep these imports inside the same DLL module used by the Structured Setup APIs. Do not declare a second conflicting <code>MODULE('CHTheme.dll')</code>.</p>
+<p>The same template also adds <code>CHTheme.lib</code> to the project and copies the accessory DLL, import library, and include files into the generated project. Manual declarations are needed only in a standalone test application that does not use the Theme Global extension.</p>
+<p class="note"><strong>Verification:</strong> after regeneration, inspect generated Global MAP output and confirm each <code>CHPT_...</code> name occurs exactly once. Duplicate-prototype errors indicate old manual declarations must be removed.</p>
 </section>
 
 <section>

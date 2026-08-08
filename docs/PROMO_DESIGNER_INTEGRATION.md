@@ -6,6 +6,8 @@ This guide is tailored to the current Test_Setup procedure. It keeps the existin
 
 ## 1. Global includes
 
+CompuHost V4 uses the **CompuHost V4 Modern Theme - Global** template extension. The current template generates `INCLUDE('CHPromoDesignerTypes.inc'),ONCE`, adds the import library, and copies the runtime/support files. Do not duplicate that include in CompuHost V4 embeds. The manual declaration below applies only to `Test_Setup.app` or another application that does not use the Theme Global extension.
+
 In **Global Properties > Embeds > Global Data**, immediately after the existing `CHStructuredDialogTypes.inc` include:
 
 ```clarion
@@ -13,6 +15,8 @@ In **Global Properties > Embeds > Global Data**, immediately after the existing 
 ```
 
 ## 2. Global MAP
+
+The Theme Global extension generates all five `CHPT_...` declarations inside its existing `MODULE('CHTheme.dll')`. Do not add duplicate MAP prototypes to CompuHost V4. The block below is retained only for standalone test applications without the extension.
 
 In **Global Properties > Embeds > Inside the Global Map**, add these declarations to the existing `MODULE('CHTheme.dll')` block. Do not create a second module:
 
