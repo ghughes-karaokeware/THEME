@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-08-07
+
+- Verified the Structured Dialog proof of concept from Clarion in both two-panel and three-panel configurations.
+- Preserved ABI version `00010000H` and all existing Clarion integration declarations.
+- Enabled Windows dark styling for the native title bar and child controls.
+- Corrected the advanced-panel heading so it cannot display a misdecoded UTF-8 dash.
+- Added a functional third-panel Back button; changing category or page makes the applicable detail panel available again.
+- Increased value-label height and enabled end ellipsis to prevent multi-line clipping into adjacent controls.
+- Rebuilt Win32 Release with zero warnings and zero errors and passed the 32-bit ABI/validation/round-trip harness.
+
 ## 2026-08-06
 
 - Consolidated the complete Theme and ButtonSubclass C++ projects into a permanent Codex workspace.

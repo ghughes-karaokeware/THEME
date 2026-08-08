@@ -1,6 +1,8 @@
 #include "CHTheme.h"
 
 #include <commctrl.h>
+#include <dwmapi.h>
+#include <uxtheme.h>
 #include <algorithm>
 #include <atomic>
 #include <charconv>
@@ -19,6 +21,7 @@ constexpr DWORD kMaximumEntries = 512;
 constexpr wchar_t kDialogClass[] = L"CHTheme.StructuredDialog";
 constexpr int kCategoryListId = 100;
 constexpr int kPageListId = 101;
+constexpr int kBackButtonId = 102;
 constexpr int kFirstDynamicId = 1000;
 
 struct Option { std::string value; std::wstring caption; };
@@ -42,6 +45,7 @@ struct DialogData
     DWORD instanceId = 0;
     bool committed = false;
     bool rendering = false;
+    bool detailSuppressed = false;
     DWORD selectedCategory = 0;
     DWORD selectedPage = 0;
     DWORD selectedDetail = 0;
@@ -191,6 +195,7 @@ HWND AddWindow(DialogData& data, DWORD exStyle, const wchar_t* className,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)),
         reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(data.window, GWLP_HINSTANCE)), nullptr);
     SetControlFont(control, data.font);
+    if (control) SetWindowTheme(control, L"DarkMode_Explorer", nullptr);
     if (control && id >= kFirstDynamicId) data.dynamicWindows.push_back(control);
     return control;
 }
@@ -335,8 +340,8 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
         SendMessageW(entry.control, BM_SETCHECK,
             entry.workingValue == "1" ? BST_CHECKED : BST_UNCHECKED, 0);
     } else {
-        AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT,
-            left, y + 5, labelWidth - 8, 22, id + 600);
+        AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT | SS_ENDELLIPSIS,
+            left, y + 5, labelWidth - 8, 24, id + 600);
         if (entry.definition.type == CHUI_DROPDOWN) {
             entry.control = AddWindow(data, 0, WC_COMBOBOXW, L"",
                 WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
@@ -379,7 +384,7 @@ void Render(DialogData& data)
     ClearDynamic(data);
     const auto details = Children(data, data.selectedPage, true);
     data.selectedDetail = details.empty() ? 0 : data.entries[details.front()].definition.id;
-    const bool hasDetail = data.selectedDetail != 0;
+    const bool hasDetail = data.selectedDetail != 0 && !data.detailSuppressed;
 
     int y = 82;
     for (size_t index : Children(data, data.selectedPage, false))
@@ -387,7 +392,7 @@ void Render(DialogData& data)
     if (hasDetail) {
         RuntimeEntry* detail = FindEntry(data, data.selectedDetail);
         if (detail) {
-            const std::wstring heading = L"Advanced — " +
+            const std::wstring heading = L"Advanced - " +
                 Utf8ToWide(detail->definition.caption);
             AddWindow(data, 0, L"STATIC", heading.c_str(), SS_LEFT,
                 842, 48, 336, 24, kFirstDynamicId + 550);
@@ -403,6 +408,10 @@ void Render(DialogData& data)
         76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
     SetWindowPos(GetDlgItem(data.window, IDCANCEL), nullptr, 758 + buttonOffset, 500,
         76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
+    HWND back = GetDlgItem(data.window, kBackButtonId);
+    SetWindowPos(back, nullptr, 842, 500, 76, 30,
+        SWP_NOZORDER | SWP_NOACTIVATE);
+    ShowWindow(back, hasDetail ? SW_SHOWNA : SW_HIDE);
     data.rendering = false;
     ApplyDependencies(data);
     InvalidateRect(data.window, nullptr, TRUE);
@@ -482,6 +491,8 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
             DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        const BOOL dark = TRUE;
+        DwmSetWindowAttribute(window, 20, &dark, sizeof(dark));
         data->categories = AddWindow(*data, 0, L"LISTBOX", L"",
             WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
             18, 48, 220, 430, kCategoryListId);
@@ -492,6 +503,8 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             674, 500, 76, 30, IDOK);
         AddWindow(*data, 0, L"BUTTON", L"Cancel", WS_TABSTOP | BS_PUSHBUTTON,
             758, 500, 76, 30, IDCANCEL);
+        AddWindow(*data, 0, L"BUTTON", L"< Back", WS_TABSTOP | BS_PUSHBUTTON,
+            842, 500, 76, 30, kBackButtonId);
         PopulateList(data->categories, *data, 0);
         data->selectedCategory = SelectedListId(data->categories);
         PopulateList(data->pages, *data, data->selectedCategory);
@@ -510,9 +523,16 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             Complete(*data, CHUI_RESULT_CANCEL);
             return 0;
         }
+        if (id == kBackButtonId && notification == BN_CLICKED) {
+            ReadAllControls(*data);
+            data->detailSuppressed = true;
+            Render(*data);
+            return 0;
+        }
         if (id == kCategoryListId && notification == LBN_SELCHANGE) {
             ReadAllControls(*data);
             data->selectedCategory = SelectedListId(data->categories);
+            data->detailSuppressed = false;
             PopulateList(data->pages, *data, data->selectedCategory);
             data->selectedPage = SelectedListId(data->pages);
             Render(*data);
@@ -521,6 +541,7 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         if (id == kPageListId && notification == LBN_SELCHANGE) {
             ReadAllControls(*data);
             data->selectedPage = SelectedListId(data->pages);
+            data->detailSuppressed = false;
             Render(*data);
             return 0;
         }

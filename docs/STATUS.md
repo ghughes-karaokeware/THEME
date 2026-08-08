@@ -1,6 +1,6 @@
 # Current Status
 
-Updated: 2026-08-06
+Updated: 2026-08-07
 
 ## Stable baseline
 
@@ -34,6 +34,8 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - The 32-bit `/W4 /WX` harness verifies ABI sizes, valid and invalid record walking, Cancel preservation, OK write-back to the same structure, and completion consumption.
 - `Test_Setup.app` itself remains unmodified. The test-only DLL, shared include, and paste-ready integration guide are staged beside it for manual Clarion integration.
 - The proof-of-concept DLL has not been installed into CompuHost or the Clarion accessory directories.
+- The first visual-refinement pass preserves ABI `00010000H` while enabling native dark-window/control styling, preventing value-label clipping, correcting the advanced-panel heading, and adding a functional Back button that returns from the third panel to the selected page.
+- Win32 Release and the 32-bit ABI/round-trip harness both pass after the visual-refinement changes.
 
 ## Known build caveat
 
