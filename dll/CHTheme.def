@@ -65,3 +65,4 @@ EXPORTS
     CHUI_OpenDialog           = _CHUI_OpenDialog@16
     CHUI_ConsumeCompletion    = _CHUI_ConsumeCompletion@12
     CHUI_ConsumeChange        = _CHUI_ConsumeChange@12
+    CHUI_ConsumeAction        = _CHUI_ConsumeAction@12

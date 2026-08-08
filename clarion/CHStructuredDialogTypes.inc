@@ -11,6 +11,7 @@ CHUI_CHECKBOX             EQUATE(13)
 CHUI_RADIO                EQUATE(14)
 CHUI_SLIDER               EQUATE(15)
 CHUI_COLOR                EQUATE(16)
+CHUI_ACTION               EQUATE(20)
 
 CHUI_RESULT_CANCEL        EQUATE(0)
 CHUI_RESULT_OK            EQUATE(1)

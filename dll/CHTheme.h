@@ -23,7 +23,7 @@ enum CHUIEntryType
     CHUI_PANEL = 1, CHUI_GROUP = 2, CHUI_HEADING = 3, CHUI_SEPARATOR = 4,
     CHUI_ENTRY = 10, CHUI_NUMBER = 11, CHUI_DROPDOWN = 12,
     CHUI_CHECKBOX = 13, CHUI_RADIO = 14, CHUI_SLIDER = 15,
-    CHUI_COLOR = 16
+    CHUI_COLOR = 16, CHUI_ACTION = 20
 };
 
 enum CHUIResult { CHUI_RESULT_CANCEL = 0, CHUI_RESULT_OK = 1, CHUI_RESULT_APPLY = 2 };
@@ -168,6 +168,8 @@ LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
 LONG __stdcall CHUI_ConsumeCompletion(HWND completionButton,
     DWORD* instanceId, LONG* result);
 LONG __stdcall CHUI_ConsumeChange(HWND completionButton,
+    DWORD* instanceId, DWORD* entryId);
+LONG __stdcall CHUI_ConsumeAction(HWND completionButton,
     DWORD* instanceId, DWORD* entryId);
 
 #ifdef __cplusplus

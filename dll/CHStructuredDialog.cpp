@@ -31,6 +31,7 @@ constexpr wchar_t kHoverProperty[] = L"CHTheme.StructuredHover";
 struct Option { std::string value; std::wstring caption; };
 struct Completion { DWORD instanceId; LONG result; };
 struct Change { DWORD instanceId; DWORD entryId; };
+struct Action { DWORD instanceId; DWORD entryId; };
 
 struct RuntimeEntry
 {
@@ -77,6 +78,7 @@ std::mutex g_mutex;
 std::unordered_map<HWND, HWND> g_byOwner;
 std::unordered_map<HWND, std::deque<Completion>> g_completions;
 std::unordered_map<HWND, std::deque<Change>> g_changes;
+std::unordered_map<HWND, std::deque<Action>> g_actions;
 std::atomic<DWORD> g_nextInstance{ 1 };
 
 bool IsTerminated(const char* value, size_t capacity)
@@ -138,6 +140,11 @@ bool IsValueType(DWORD type)
     return type >= CHUI_ENTRY && type <= CHUI_COLOR;
 }
 
+bool IsEntryType(DWORD type)
+{
+    return IsValueType(type) || type == CHUI_ACTION;
+}
+
 LONG Validate(const CHUI_DIALOG_HEADER* header, const CHUI_ENTRY_RECORD* entries)
 {
     if (!header || (!entries && header->entryCount)) return CHUI_ERROR_ARGUMENT;
@@ -152,7 +159,7 @@ LONG Validate(const CHUI_DIALOG_HEADER* header, const CHUI_ENTRY_RECORD* entries
     for (DWORD index = 0; index < header->entryCount; ++index) {
         const CHUI_ENTRY_RECORD& entry = entries[index];
         if (entry.type < CHUI_PANEL ||
-            (entry.type > CHUI_SEPARATOR && !IsValueType(entry.type)))
+            (entry.type > CHUI_SEPARATOR && !IsEntryType(entry.type)))
             return CHUI_ERROR_TYPE;
         if (!entry.id || types.find(entry.id) != types.end()) return CHUI_ERROR_ID;
         if (!IsTerminated(entry.caption, sizeof(entry.caption)) ||
@@ -897,6 +904,20 @@ void NotifyLiveChange(DialogData& data, RuntimeEntry& entry)
             reinterpret_cast<LPARAM>(data.completionButton));
 }
 
+void NotifyAction(DialogData& data, const RuntimeEntry& entry)
+{
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_actions[data.completionButton].push_back({ data.instanceId,
+            entry.definition.id });
+    }
+    HWND parent = GetParent(data.completionButton);
+    if (IsWindow(parent) && IsWindow(data.completionButton))
+        PostMessageW(parent, WM_COMMAND,
+            MAKEWPARAM(GetDlgCtrlID(data.completionButton), BN_CLICKED),
+            reinterpret_cast<LPARAM>(data.completionButton));
+}
+
 int LabelWidth(DialogData& data, const std::vector<size_t>& children,
     int minimum, int panelWidth)
 {
@@ -947,6 +968,13 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
         AddWindow(data, 0, L"BUTTON", caption.c_str(), BS_GROUPBOX,
             left, y, width - 18, 42, id);
         y += 50;
+        return;
+    }
+    if (entry.definition.type == CHUI_ACTION) {
+        entry.control = AddWindow(data, 0, L"BUTTON", caption.c_str(),
+            WS_TABSTOP | BS_OWNERDRAW, left, y, std::min(230, width - 18), 28, id);
+        data.byControlId[id] = entry.sourceIndex;
+        y += 36;
         return;
     }
     if (entry.definition.type == CHUI_CHECKBOX || entry.definition.type == CHUI_RADIO) {
@@ -1302,6 +1330,12 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         }
         const auto dynamic = data->byControlId.find(id);
         if (!data->rendering && dynamic != data->byControlId.end() &&
+            notification == BN_CLICKED &&
+            data->entries[dynamic->second].definition.type == CHUI_ACTION) {
+            NotifyAction(*data, data->entries[dynamic->second]);
+            return 0;
+        }
+        if (!data->rendering && dynamic != data->byControlId.end() &&
             notification == BN_CLICKED) {
             RuntimeEntry& entry = data->entries[dynamic->second];
             if (entry.definition.type == CHUI_COLOR) {
@@ -1368,6 +1402,10 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                 RuntimeEntry& entry = data->entries[dynamic->second];
                 if (entry.definition.type == CHUI_COLOR) {
                     DrawColorButton(entry, *item);
+                    return TRUE;
+                }
+                if (entry.definition.type == CHUI_ACTION) {
+                    DrawCommandButton(*data, *item);
                     return TRUE;
                 }
             }
@@ -1560,5 +1598,20 @@ LONG __stdcall CHUI_ConsumeChange(HWND completionButton,
     if (found->second.empty()) g_changes.erase(found);
     *instanceId = change.instanceId;
     *entryId = change.entryId;
+    return TRUE;
+}
+
+LONG __stdcall CHUI_ConsumeAction(HWND completionButton,
+    DWORD* instanceId, DWORD* entryId)
+{
+    if (!IsWindow(completionButton) || !instanceId || !entryId) return FALSE;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    auto found = g_actions.find(completionButton);
+    if (found == g_actions.end() || found->second.empty()) return FALSE;
+    const Action action = found->second.front();
+    found->second.pop_front();
+    if (found->second.empty()) g_actions.erase(found);
+    *instanceId = action.instanceId;
+    *entryId = action.entryId;
     return TRUE;
 }

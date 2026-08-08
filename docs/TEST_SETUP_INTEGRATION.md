@@ -25,6 +25,7 @@ CHUI_ValidateDialog(LONG HeaderAddress,LONG EntriesAddress),LONG,PASCAL,RAW,NAME
 CHUI_OpenDialog(LONG OwnerHwnd,LONG HeaderAddress,LONG EntriesAddress,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
 CHUI_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DialogResult),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
 CHUI_ConsumeChange(LONG CompletionButtonHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeChange')
+CHUI_ConsumeAction(LONG CompletionButtonHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeAction')
      END
 ```
 
@@ -152,6 +153,17 @@ END
 Place in `?CHUIComplete / Accepted`:
 
 ```clarion
+IF CHUI_ConsumeAction(?CHUIComplete{PROP:Handle}, |
+                      ChangedInstance,ChangedEntryID)
+  IF ChangedInstance = DialogInstance
+    CASE ChangedEntryID
+    OF 401
+      SelectAudioDevice
+      ! Update the applicable DialogEntries[].Value after the procedure returns.
+    END
+  END
+END
+
 IF CHUI_ConsumeCompletion(?CHUIComplete{PROP:Handle}, |
                           CompletedInstance,DialogResult)
   IF CompletedInstance = DialogInstance
@@ -176,6 +188,11 @@ IF CHUI_ConsumeCompletion(?CHUIComplete{PROP:Handle}, |
   END
 END
 ```
+
+An entry with `Type = CHUI_ACTION` is rendered as a themed button. Activating it
+posts the same hidden-button `EVENT:Accepted`, but it is consumed through
+`CHUI_ConsumeAction`. It neither closes the setup dialog nor changes the Apply
+state. Use the returned entry ID to call the existing Clarion procedure.
 
 ## 8. PrepareStructuredDialog ROUTINE
 

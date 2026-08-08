@@ -30,8 +30,10 @@ int main(int argc, char** argv)
     const Consume consume = Load<Consume>(module, "CHUI_ConsumeCompletion");
     const ConsumeChange consumeChange = Load<ConsumeChange>(module,
         "CHUI_ConsumeChange");
+    const ConsumeChange consumeAction = Load<ConsumeChange>(module,
+        "CHUI_ConsumeAction");
     if (!getVersion || !getHeaderSize || !getEntrySize || !validate ||
-        !openDialog || !consume || !consumeChange) return 4;
+        !openDialog || !consume || !consumeChange || !consumeAction) return 4;
 
     if (getVersion() != 0x00010000 ||
         getHeaderSize() != sizeof(CHUI_DIALOG_HEADER) ||
@@ -155,6 +157,29 @@ int main(int argc, char** argv)
     if (!consume(notification, &completedInstance, &result) ||
         completedInstance != static_cast<DWORD>(okInstance) ||
         result != CHUI_RESULT_OK || std::strcmp(entries[2].value, "0")) return 16;
+
+    entries[2].type = CHUI_ACTION;
+    entries[2].flags = 0;
+    strcpy_s(entries[2].caption, "Select audio device...");
+    entries[2].value[0] = '\0';
+    if (validate(&header, entries) != CHUI_STATUS_OK) return 23;
+    const LONG actionInstance = openDialog(owner, &header, entries, notification);
+    if (actionInstance <= 0) return 24;
+    dialog = FindWindowW(L"CHTheme.StructuredDialog", L"ABI test");
+    HWND actionButton = dialog ? GetDlgItem(dialog, 1002) : nullptr;
+    if (!actionButton) return 25;
+    SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(1002, BN_CLICKED),
+        reinterpret_cast<LPARAM>(actionButton));
+    DWORD actionInstanceResult = 0;
+    DWORD actionEntry = 0;
+    if (!consumeAction(notification, &actionInstanceResult, &actionEntry) ||
+        actionInstanceResult != static_cast<DWORD>(actionInstance) ||
+        actionEntry != 111 || !IsWindow(dialog) ||
+        consume(notification, &completedInstance, &result)) return 26;
+    SendMessageW(dialog, WM_CLOSE, 0, 0);
+    if (!consume(notification, &completedInstance, &result) ||
+        completedInstance != static_cast<DWORD>(actionInstance) ||
+        result != CHUI_RESULT_CANCEL) return 27;
     DestroyWindow(owner);
 
     std::printf("ABI=%08lX header=%lu entry=%lu validation=PASS roundtrip=PASS\n",

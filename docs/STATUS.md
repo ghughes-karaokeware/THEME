@@ -51,6 +51,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - Closed dropdown faces now receive complete DLL-owned dark rounded painting, including focus border, selected caption, and chevron. Checkboxes retain native input behavior while using compact rounded blue theme glyphs and matching focus/disabled text.
 - DLL-owned mouse tracking now supplies distinct hover feedback for category/page cards, command/detail/color buttons, dropdown faces, and checkboxes without weakening selected or pressed-state contrast.
 - The footer now includes a dirty-state-aware Apply button. Apply validates and writes all current values, signals the existing Clarion completion event with `CHUI_RESULT_APPLY`, remains open, and establishes the new Cancel baseline; OK uses the same value-application routine and then closes.
+- `CHUI_ACTION` entries render as themed, hover-aware buttons and signal the existing hidden Clarion notification control without closing the dialog or changing its dirty state. `CHUI_ConsumeAction` returns the dialog instance and action entry ID so CompuHost can invoke its existing device, file-management, and advanced-settings procedures.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

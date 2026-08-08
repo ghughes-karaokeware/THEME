@@ -63,4 +63,4 @@ Application-variable metadata remains Clarion-only. A later helper may map Entry
 
 ## Deferred beyond the current proof of concept
 
-Search, application-supplied icon registration, file/folder/color pickers, tables, arbitrary action callbacks, reset-all, actual CompuHost globals, and migration of the production Setup dialog.
+Search, application-supplied icon registration, file/folder pickers, tables, reset-all, actual CompuHost globals, and migration of the production Setup dialog. Color selection and callback-free action notifications have since been implemented without changing the version-1 record layout.
