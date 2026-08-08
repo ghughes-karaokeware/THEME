@@ -17,7 +17,7 @@ constexpr COLORREF kBg = RGB(5, 15, 25), kPanel = RGB(14, 31, 46), kBorder = RGB
 constexpr int ID_EDITOR = 100, ID_BOLD = 110, ID_ITALIC = 111, ID_UNDERLINE = 112, ID_UNDO = 113, ID_REDO = 114, ID_AUTOLOAD = 115, ID_LOAD = 116, ID_SAVE = 117, ID_CLEAR = 118, ID_OK = 120, ID_CANCEL = 121, ID_COLOR0 = 200;
 const COLORREF kColors[10] = { RGB(255,255,255), RGB(255,255,255), RGB(255,255,0), RGB(255,0,0), RGB(52,204,255), RGB(52,255,52), RGB(255,128,0), RGB(255,0,255), RGB(128,0,128), RGB(255,204,0) };
 struct Completion { DWORD instance; LONG result; };
-struct Data { HWND window{}, owner{}, notify{}, editor{}; CHPT_PROMO_DATA* caller{}; DWORD instance{}; std::string original; HFONT font{}; bool completed{}, autoload{}; };
+struct Data { HWND window{}, owner{}, notify{}, editor{}; CHPT_PROMO_DATA* caller{}; DWORD instance{}; std::string original; HFONT font{}, titleFont{}; bool completed{}, autoload{}; int hoverId{}; };
 std::mutex gLock; std::unordered_map<HWND, std::unique_ptr<Data>> gWindows; std::unordered_map<HWND, std::deque<Completion>> gCompletions; DWORD gNext = 1; HMODULE gRich{};
 void Debug(const Data& d,const wchar_t* event,DWORD value=0){if(!(d.caller->flags&CHPT_FLAG_DEBUG_LOG))return;wchar_t line[180]{};wsprintfW(line,L"CHPT instance=%lu %s value=%lu input=%lu output=%lu\n",d.instance,event,value,d.caller->inputLength,d.caller->outputLength);OutputDebugStringW(line);}
 
@@ -50,6 +50,14 @@ LRESULT CALLBACK EditorSubclass(HWND edit, UINT msg, WPARAM wp, LPARAM lp, UINT_
         if (wp == 'U') { Toggle(edit, CFM_UNDERLINE, CFE_UNDERLINE); return 0; }
     }
     return DefSubclassProc(edit, msg, wp, lp);
+}
+
+LRESULT CALLBACK ButtonSubclass(HWND button, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR ref)
+{
+    auto* d=reinterpret_cast<Data*>(ref);
+    if(msg==WM_MOUSEMOVE&&d->hoverId!=GetDlgCtrlID(button)){d->hoverId=GetDlgCtrlID(button);TRACKMOUSEEVENT track{sizeof(track),TME_LEAVE,button,0};TrackMouseEvent(&track);InvalidateRect(button,nullptr,FALSE);}
+    else if(msg==WM_MOUSELEAVE&&d->hoverId==GetDlgCtrlID(button)){d->hoverId=0;InvalidateRect(button,nullptr,FALSE);}
+    return DefSubclassProc(button,msg,wp,lp);
 }
 
 void LoadDocument(Data& d)
@@ -111,9 +119,9 @@ void LoadPrm(Data& d)
 
 void Layout(Data& d)
 {
-    RECT r{}; GetClientRect(d.window, &r); const int m = 18, top = 142, bottom = 62;
+    RECT r{}; GetClientRect(d.window, &r); const int m = 20, top = 150, bottom = 72;
     MoveWindow(d.editor, m, top, std::max(100, static_cast<int>(r.right) - m * 2), std::max(80, static_cast<int>(r.bottom) - top - bottom), TRUE);
-    MoveWindow(GetDlgItem(d.window, ID_OK), r.right - 190, r.bottom - 44, 78, 30, TRUE); MoveWindow(GetDlgItem(d.window, ID_CANCEL), r.right - 102, r.bottom - 44, 78, 30, TRUE);
+    const int y=r.bottom-48;MoveWindow(GetDlgItem(d.window,ID_LOAD),20,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_SAVE),120,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_CLEAR),220,y,72,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_OK),r.right-190,y,78,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_CANCEL),r.right-102,y,78,32,TRUE);
 }
 LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -122,20 +130,21 @@ LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
     if (!d) return DefWindowProcW(w, msg, wp, lp);
     switch (msg) {
     case WM_CREATE: {
-        d->font = CreateFontW(-16,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
-        auto button=[&](int id,const wchar_t* text,int x,int y,int width){HWND h=CreateWindowExW(0,L"BUTTON",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,x,y,width,30,w,reinterpret_cast<HMENU>(id),nullptr,nullptr);SendMessageW(h,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE);};
-        button(ID_BOLD,L"B",18,66,36); button(ID_ITALIC,L"I",58,66,36); button(ID_UNDERLINE,L"U",98,66,36); button(ID_UNDO,L"Undo",148,66,58); button(ID_REDO,L"Redo",210,66,58);
-        button(ID_COLOR0,L"Default",278,66,62); for(int i=1;i<10;++i) button(ID_COLOR0+i,std::to_wstring(i).c_str(),344+(i-1)*38,66,34);
-        button(ID_LOAD,L"Load .PRM",18,104,92); button(ID_SAVE,L"Save .PRM",116,104,92); button(ID_CLEAR,L"Clear",214,104,70); button(ID_AUTOLOAD,L"Auto-load selected Promo Trailer on startup",300,104,330);
+        d->font = CreateFontW(-16,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");d->titleFont=CreateFontW(-20,0,0,0,FW_SEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
+        auto button=[&](int id,const wchar_t* text,int x,int y,int width){HWND h=CreateWindowExW(0,L"BUTTON",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,x,y,width,30,w,reinterpret_cast<HMENU>(id),nullptr,nullptr);SendMessageW(h,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE);SetWindowSubclass(h,ButtonSubclass,1,reinterpret_cast<DWORD_PTR>(d));};
+        button(ID_BOLD,L"B",20,72,36); button(ID_ITALIC,L"I",60,72,36); button(ID_UNDERLINE,L"U",100,72,36); button(ID_UNDO,L"Undo",150,72,58); button(ID_REDO,L"Redo",212,72,58);
+        button(ID_COLOR0,L"Default",282,72,62); for(int i=1;i<10;++i) button(ID_COLOR0+i,std::to_wstring(i).c_str(),348+(i-1)*38,72,34);
+        button(ID_AUTOLOAD,L"Auto-load selected Promo Trailer on startup",20,110,410);
+        button(ID_LOAD,L"Load",0,0,92); button(ID_SAVE,L"Save",0,0,92); button(ID_CLEAR,L"Clear",0,0,72);
         button(ID_OK,L"OK",0,0,78); button(ID_CANCEL,L"Cancel",0,0,78);
         d->autoload=(d->caller->flags&CHPT_FLAG_AUTOLOAD)!=0;
         d->editor=CreateWindowExW(0,MSFTEDIT_CLASS,L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN,18,100,700,350,w,reinterpret_cast<HMENU>(ID_EDITOR),nullptr,nullptr);
         SendMessageW(d->editor,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE); SendMessageW(d->editor,EM_SETBKGNDCOLOR,0,kPanel); SendMessageW(d->editor,EM_SETLIMITTEXT,d->caller->maximumLength,0); SetWindowSubclass(d->editor,EditorSubclass,1,reinterpret_cast<DWORD_PTR>(d)); CHARFORMAT2W base{};base.cbSize=sizeof(base);base.dwMask=CFM_COLOR;base.crTextColor=kText;SendMessageW(d->editor,EM_SETCHARFORMAT,SCF_ALL,reinterpret_cast<LPARAM>(&base));LoadDocument(*d); Layout(*d); return 0; }
     case WM_GETMINMAXINFO: { auto* info=reinterpret_cast<MINMAXINFO*>(lp); info->ptMinTrackSize.x=760; info->ptMinTrackSize.y=480; return 0; }
-    case WM_SIZE: Layout(*d); return 0;
+    case WM_SIZE: Layout(*d);InvalidateRect(w,nullptr,FALSE);return 0;
     case WM_ERASEBKGND: { RECT r{}; GetClientRect(w,&r); HBRUSH brush=CreateSolidBrush(kBg); FillRect(reinterpret_cast<HDC>(wp),&r,brush); DeleteObject(brush); return 1; }
-    case WM_PAINT: { PAINTSTRUCT ps{}; HDC dc=BeginPaint(w,&ps);RECT client{};GetClientRect(w,&client);HBRUSH accent=CreateSolidBrush(kAccent);RECT bar{14,14,18,54};FillRect(dc,&bar,accent);RECT line{18,58,client.right-18,59};FillRect(dc,&line,accent);DeleteObject(accent);SetBkMode(dc,TRANSPARENT);SetTextColor(dc,kText);SelectObject(dc,d->font);RECT title{26,15,client.right-18,36};DrawTextW(dc,L"PROMO TRAILER DESIGNER",-1,&title,DT_LEFT|DT_SINGLELINE);SetTextColor(dc,RGB(164,188,208));RECT help{26,36,client.right-18,56};DrawTextW(dc,L"Each line is a separate trailer. Format text, manage .PRM files, then press OK to return it to CompuHost V4.",-1,&help,DT_LEFT|DT_SINGLELINE|DT_END_ELLIPSIS);EndPaint(w,&ps);return 0; }
-    case WM_DRAWITEM: { auto* item=reinterpret_cast<DRAWITEMSTRUCT*>(lp); if(item->CtlType!=ODT_BUTTON)break; RECT r=item->rcItem; const bool pressed=(item->itemState&ODS_SELECTED)!=0; HBRUSH outside=CreateSolidBrush(kBg);FillRect(item->hDC,&r,outside);DeleteObject(outside);HBRUSH fill=CreateSolidBrush(item->CtlID==ID_OK?kAccent:(pressed?RGB(31,64,91):kPanel)); HPEN pen=CreatePen(PS_SOLID,1,item->CtlID==ID_OK?RGB(44,151,239):kBorder); HGDIOBJ oldBrush=SelectObject(item->hDC,fill),oldPen=SelectObject(item->hDC,pen); RoundRect(item->hDC,r.left,r.top,r.right,r.bottom,7,7); SelectObject(item->hDC,oldBrush);SelectObject(item->hDC,oldPen);DeleteObject(fill);DeleteObject(pen); wchar_t label[80]{};GetWindowTextW(item->hwndItem,label,80);SetBkMode(item->hDC,TRANSPARENT);SetTextColor(item->hDC,kText);SelectObject(item->hDC,d->font); if(item->CtlID>=ID_COLOR0&&item->CtlID<ID_COLOR0+10){int index=item->CtlID-ID_COLOR0;if(index){RECT sw=r;InflateRect(&sw,-8,-7);HBRUSH color=CreateSolidBrush(kColors[index]);FillRect(item->hDC,&sw,color);DeleteObject(color);}else DrawTextW(item->hDC,label,-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);}else if(item->CtlID==ID_AUTOLOAD){RECT box{r.left+10,r.top+7,r.left+26,r.top+23};HBRUSH checkBg=CreateSolidBrush(RGB(8,22,34));FillRect(item->hDC,&box,checkBg);DeleteObject(checkBg);FrameRect(item->hDC,&box,GetSysColorBrush(COLOR_3DSHADOW));if(d->autoload){HPEN checkPen=CreatePen(PS_SOLID,2,RGB(77,190,255));HGDIOBJ old=SelectObject(item->hDC,checkPen);MoveToEx(item->hDC,box.left+3,box.top+8,nullptr);LineTo(item->hDC,box.left+7,box.bottom-3);LineTo(item->hDC,box.right-3,box.top+3);SelectObject(item->hDC,old);DeleteObject(checkPen);}RECT textRect=r;textRect.left=32;DrawTextW(item->hDC,label,-1,&textRect,DT_LEFT|DT_VCENTER|DT_SINGLELINE);}else DrawTextW(item->hDC,label,-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);return TRUE; }
+    case WM_PAINT: { PAINTSTRUCT ps{};HDC dc=BeginPaint(w,&ps);RECT client{};GetClientRect(w,&client);for(int y=0;y<64;++y){const int blue=25+(y*18/64);HBRUSH shade=CreateSolidBrush(RGB(5,16,blue));RECT strip{0,y,client.right,y+1};FillRect(dc,&strip,shade);DeleteObject(shade);}HBRUSH band=CreateSolidBrush(RGB(8,23,36));RECT formatBand{14,66,client.right-14,104};FillRect(dc,&formatBand,band);RECT footer{0,client.bottom-64,client.right,client.bottom};FillRect(dc,&footer,band);HBRUSH accent=CreateSolidBrush(kAccent);RECT bar{14,14,18,54};FillRect(dc,&bar,accent);RECT line{18,59,client.right-18,61};FillRect(dc,&line,accent);RECT footerLine{18,client.bottom-65,client.right-18,client.bottom-64};FillRect(dc,&footerLine,accent);DeleteObject(accent);HPEN editorPen=CreatePen(PS_SOLID,1,RGB(36,74,102));HGDIOBJ oldPen=SelectObject(dc,editorPen);HGDIOBJ oldBrush=SelectObject(dc,GetStockObject(NULL_BRUSH));RECT editor{};GetWindowRect(d->editor,&editor);MapWindowPoints(HWND_DESKTOP,w,reinterpret_cast<POINT*>(&editor),2);Rectangle(dc,editor.left-1,editor.top-1,editor.right+1,editor.bottom+1);SelectObject(dc,oldBrush);SelectObject(dc,oldPen);DeleteObject(editorPen);SetBkMode(dc,TRANSPARENT);SetTextColor(dc,kText);SelectObject(dc,d->titleFont);RECT title{26,14,client.right-18,38};DrawTextW(dc,L"PROMO TRAILER DESIGNER",-1,&title,DT_LEFT|DT_SINGLELINE);SelectObject(dc,d->font);SetTextColor(dc,RGB(164,188,208));RECT help{26,38,client.right-18,57};DrawTextW(dc,L"Create, format, save and recall show-ready promotional messages.",-1,&help,DT_LEFT|DT_SINGLELINE|DT_END_ELLIPSIS);EndPaint(w,&ps);return 0; }
+    case WM_DRAWITEM: { auto* item=reinterpret_cast<DRAWITEMSTRUCT*>(lp);if(item->CtlType!=ODT_BUTTON)break;RECT r=item->rcItem;const bool pressed=(item->itemState&ODS_SELECTED)!=0,hovered=d->hoverId==static_cast<int>(item->CtlID);const bool onBand=item->CtlID==ID_LOAD||item->CtlID==ID_SAVE||item->CtlID==ID_CLEAR||item->CtlID==ID_OK||item->CtlID==ID_CANCEL||(item->CtlID>=ID_BOLD&&item->CtlID<=ID_REDO)||(item->CtlID>=ID_COLOR0&&item->CtlID<ID_COLOR0+10);HBRUSH outside=CreateSolidBrush(onBand?RGB(8,23,36):kBg);FillRect(item->hDC,&r,outside);DeleteObject(outside);COLORREF fillColor=item->CtlID==ID_OK?(hovered?RGB(0,145,245):kAccent):(pressed?RGB(34,76,108):(hovered?RGB(24,58,83):kPanel));HBRUSH fill=CreateSolidBrush(fillColor);HPEN pen=CreatePen(PS_SOLID,1,(item->CtlID==ID_OK||hovered)?RGB(58,162,235):kBorder);HGDIOBJ oldBrush=SelectObject(item->hDC,fill),oldPen=SelectObject(item->hDC,pen);RoundRect(item->hDC,r.left,r.top,r.right,r.bottom,8,8);SelectObject(item->hDC,oldBrush);SelectObject(item->hDC,oldPen);DeleteObject(fill);DeleteObject(pen);wchar_t label[80]{};GetWindowTextW(item->hwndItem,label,80);SetBkMode(item->hDC,TRANSPARENT);SetTextColor(item->hDC,kText);SelectObject(item->hDC,d->font);if(item->CtlID>=ID_COLOR0&&item->CtlID<ID_COLOR0+10){int index=item->CtlID-ID_COLOR0;if(index){RECT sw=r;InflateRect(&sw,-8,-7);HBRUSH color=CreateSolidBrush(kColors[index]);HPEN swPen=CreatePen(PS_SOLID,1,RGB(108,137,158));HGDIOBJ ob=SelectObject(item->hDC,color),op=SelectObject(item->hDC,swPen);RoundRect(item->hDC,sw.left,sw.top,sw.right,sw.bottom,4,4);SelectObject(item->hDC,ob);SelectObject(item->hDC,op);DeleteObject(color);DeleteObject(swPen);}else DrawTextW(item->hDC,label,-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);}else if(item->CtlID==ID_AUTOLOAD){RECT box{r.left+10,r.top+7,r.left+26,r.top+23};HBRUSH checkBg=CreateSolidBrush(RGB(8,22,34));FillRect(item->hDC,&box,checkBg);DeleteObject(checkBg);FrameRect(item->hDC,&box,GetSysColorBrush(COLOR_3DSHADOW));if(d->autoload){HPEN checkPen=CreatePen(PS_SOLID,2,RGB(77,190,255));HGDIOBJ old=SelectObject(item->hDC,checkPen);MoveToEx(item->hDC,box.left+3,box.top+8,nullptr);LineTo(item->hDC,box.left+7,box.bottom-3);LineTo(item->hDC,box.right-3,box.top+3);SelectObject(item->hDC,old);DeleteObject(checkPen);}RECT textRect=r;textRect.left=r.left+34;DrawTextW(item->hDC,label,-1,&textRect,DT_LEFT|DT_VCENTER|DT_SINGLELINE);}else DrawTextW(item->hDC,label,-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);return TRUE; }
     case WM_COMMAND: switch(LOWORD(wp)) {
         case ID_BOLD: Toggle(d->editor,CFM_BOLD,CFE_BOLD); return 0; case ID_ITALIC: Toggle(d->editor,CFM_ITALIC,CFE_ITALIC); return 0; case ID_UNDERLINE: Toggle(d->editor,CFM_UNDERLINE,CFE_UNDERLINE); return 0;
         case ID_UNDO: SendMessageW(d->editor,EM_UNDO,0,0); return 0; case ID_REDO: SendMessageW(d->editor,EM_REDO,0,0); return 0;
@@ -143,7 +152,7 @@ LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
         case ID_OK: if(SaveDocument(*d)){Notify(*d,CHPT_RESULT_OK);DestroyWindow(w);} return 0; case ID_CANCEL: Notify(*d,CHPT_RESULT_CANCEL);DestroyWindow(w);return 0;
         default: if(LOWORD(wp)>=ID_COLOR0&&LOWORD(wp)<ID_COLOR0+10){SetColor(d->editor,LOWORD(wp)-ID_COLOR0);return 0;} break; } break;
     case WM_CLOSE: Notify(*d,CHPT_RESULT_CANCEL); DestroyWindow(w); return 0;
-    case WM_DESTROY: if(d->font) DeleteObject(d->font); { std::lock_guard<std::mutex> lock(gLock); gWindows.erase(w); } return 0;
+    case WM_DESTROY: if(d->font) DeleteObject(d->font);if(d->titleFont)DeleteObject(d->titleFont); { std::lock_guard<std::mutex> lock(gLock); gWindows.erase(w); } return 0;
     }
     return DefWindowProcW(w,msg,wp,lp);
 }

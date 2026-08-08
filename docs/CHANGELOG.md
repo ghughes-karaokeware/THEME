@@ -2,6 +2,7 @@
 
 - Corrected Promo Designer header/toolbar spacing and removed native owner-draw background/focus artifacts from its modern buttons and color swatches.
 - Added internal `.PRM` Load, Save, and Clear commands plus transactional Auto-load-on-startup flag round-tripping.
+- Redesigned the Promo Designer with a gradient title area, formatting band, bordered editor card, hover-responsive controls, an unclipped Auto-load option, and a balanced footer command bar.
 
 ## 2026-08-08
 
