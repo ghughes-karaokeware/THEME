@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-08
+
+- Added a themed Apply button that is enabled only while structured-dialog values differ from the last accepted baseline.
+- Apply validates and writes all values, queues `CHUI_RESULT_APPLY` through the existing completion notification, keeps the dialog open, and establishes a new Cancel rollback baseline.
+- Extended the ABI harness to verify the Apply result, caller write-back, persistent dialog window, and disabled clean state.
+- Updated and staged the Clarion include and integration guide; the ABI version and exported-function set remain unchanged.
+
 ## 2026-08-07
 
 - Added ABI-compatible `CHUI_COLOR` structured-dialog entries with a current-color swatch, native Windows color picker, decimal Clarion `LONG` write-back, and Cancel preservation.

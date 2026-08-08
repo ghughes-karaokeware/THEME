@@ -26,7 +26,7 @@ enum CHUIEntryType
     CHUI_COLOR = 16
 };
 
-enum CHUIResult { CHUI_RESULT_CANCEL = 0, CHUI_RESULT_OK = 1 };
+enum CHUIResult { CHUI_RESULT_CANCEL = 0, CHUI_RESULT_OK = 1, CHUI_RESULT_APPLY = 2 };
 
 enum CHUIEntryFlags
 {

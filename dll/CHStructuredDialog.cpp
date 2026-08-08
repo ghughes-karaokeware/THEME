@@ -24,6 +24,7 @@ constexpr int kCategoryListId = 100;
 constexpr int kPageListId = 101;
 constexpr int kBackButtonId = 102;
 constexpr int kDetailButtonId = 103;
+constexpr int kApplyButtonId = 104;
 constexpr int kFirstDynamicId = 1000;
 constexpr wchar_t kHoverProperty[] = L"CHTheme.StructuredHover";
 
@@ -36,6 +37,8 @@ struct RuntimeEntry
     CHUI_ENTRY_RECORD definition{};
     size_t sourceIndex = 0;
     std::string workingValue;
+    std::string baselineValue;
+    std::string cancelValue;
     HWND control = nullptr;
     HWND valueLabel = nullptr;
 };
@@ -399,7 +402,7 @@ void SetControlFont(HWND control, HFONT font)
 bool IsCommandButton(int id)
 {
     return id == IDOK || id == IDCANCEL || id == kBackButtonId ||
-        id == kDetailButtonId;
+        id == kDetailButtonId || id == kApplyButtonId;
 }
 
 void DrawCommandButton(DialogData& data, const DRAWITEMSTRUCT& item)
@@ -1074,11 +1077,13 @@ void Render(DialogData& data)
                 detailLabelWidth);
     }
     const int buttonY = clientHeight - 45;
-    SetWindowPos(GetDlgItem(data.window, IDOK), nullptr, clientWidth - 176, buttonY,
+    SetWindowPos(GetDlgItem(data.window, IDOK), nullptr, clientWidth - 260, buttonY,
         76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
-    SetWindowPos(GetDlgItem(data.window, IDCANCEL), nullptr, clientWidth - 92,
+    SetWindowPos(GetDlgItem(data.window, IDCANCEL), nullptr, clientWidth - 176,
         buttonY,
         76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(GetDlgItem(data.window, kApplyButtonId), nullptr, clientWidth - 92,
+        buttonY, 76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
     HWND back = GetDlgItem(data.window, kBackButtonId);
     SetWindowPos(back, nullptr, detailLeft + 8, buttonY, 76, 30,
         SWP_NOZORDER | SWP_NOACTIVATE);
@@ -1124,22 +1129,59 @@ bool ValidateWorkingValues(DialogData& data)
     return true;
 }
 
+bool HasChanges(const DialogData& data)
+{
+    for (const auto& entry : data.entries)
+        if (IsValueType(entry.definition.type) &&
+            entry.workingValue != entry.baselineValue) return true;
+    return false;
+}
+
+void UpdateApplyButton(DialogData& data)
+{
+    HWND apply = GetDlgItem(data.window, kApplyButtonId);
+    if (IsWindow(apply)) EnableWindow(apply, HasChanges(data));
+}
+
+bool CommitWorkingValues(DialogData& data, bool establishBaseline)
+{
+    if (!ValidateWorkingValues(data)) return false;
+    for (auto& entry : data.entries) {
+        if (!IsValueType(entry.definition.type)) continue;
+        strncpy_s(data.callerEntries[entry.sourceIndex].value,
+            entry.workingValue.c_str(), _TRUNCATE);
+        if (establishBaseline) {
+            entry.baselineValue = entry.workingValue;
+            entry.cancelValue = entry.workingValue;
+        }
+    }
+    return true;
+}
+
+void QueueCompletion(DialogData& data, LONG result)
+{
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_completions[data.completionButton].push_back({ data.instanceId, result });
+    }
+    HWND parent = GetParent(data.completionButton);
+    if (IsWindow(parent) && IsWindow(data.completionButton))
+        PostMessageW(parent, WM_COMMAND,
+            MAKEWPARAM(GetDlgCtrlID(data.completionButton), BN_CLICKED),
+            reinterpret_cast<LPARAM>(data.completionButton));
+}
+
 void Complete(DialogData& data, LONG result)
 {
     ReadAllControls(data);
     if (result == CHUI_RESULT_OK) {
-        if (!ValidateWorkingValues(data)) return;
-        for (const auto& entry : data.entries) {
-            if (IsValueType(entry.definition.type))
-                strncpy_s(data.callerEntries[entry.sourceIndex].value,
-                    entry.workingValue.c_str(), _TRUNCATE);
-        }
+        if (!CommitWorkingValues(data, false)) return;
         data.committed = true;
     } else {
         for (const auto& entry : data.entries) {
             if (IsValueType(entry.definition.type))
                 strncpy_s(data.callerEntries[entry.sourceIndex].value,
-                    entry.definition.value, _TRUNCATE);
+                    entry.cancelValue.c_str(), _TRUNCATE);
         }
     }
     DestroyWindow(data.window);
@@ -1150,14 +1192,8 @@ void NotifyCompletion(DialogData& data)
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_byOwner.erase(data.owner);
-        g_completions[data.completionButton].push_back({ data.instanceId,
-            data.committed ? CHUI_RESULT_OK : CHUI_RESULT_CANCEL });
     }
-    HWND parent = GetParent(data.completionButton);
-    if (IsWindow(parent) && IsWindow(data.completionButton))
-        PostMessageW(parent, WM_COMMAND,
-            MAKEWPARAM(GetDlgCtrlID(data.completionButton), BN_CLICKED),
-            reinterpret_cast<LPARAM>(data.completionButton));
+    QueueCompletion(data, data.committed ? CHUI_RESULT_OK : CHUI_RESULT_CANCEL);
 }
 
 LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1203,6 +1239,8 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             674, 500, 76, 30, IDOK);
         AddWindow(*data, 0, L"BUTTON", L"Cancel", WS_TABSTOP | BS_OWNERDRAW,
             758, 500, 76, 30, IDCANCEL);
+        AddWindow(*data, 0, L"BUTTON", L"Apply", WS_TABSTOP | BS_OWNERDRAW,
+            758, 500, 76, 30, kApplyButtonId);
         AddWindow(*data, 0, L"BUTTON", L"< Back", WS_TABSTOP | BS_OWNERDRAW,
             842, 500, 76, 30, kBackButtonId);
         AddWindow(*data, 0, L"BUTTON", L"Advanced Settings...",
@@ -1212,6 +1250,7 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         PopulateList(data->pages, *data, data->selectedCategory);
         data->selectedPage = SelectedListId(data->pages);
         Render(*data);
+        UpdateApplyButton(*data);
         return 0;
     }
     case WM_COMMAND: {
@@ -1223,6 +1262,14 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         }
         if (id == IDCANCEL && notification == BN_CLICKED) {
             Complete(*data, CHUI_RESULT_CANCEL);
+            return 0;
+        }
+        if (id == kApplyButtonId && notification == BN_CLICKED) {
+            ReadAllControls(*data);
+            if (CommitWorkingValues(*data, true)) {
+                UpdateApplyButton(*data);
+                QueueCompletion(*data, CHUI_RESULT_APPLY);
+            }
             return 0;
         }
         if (id == kBackButtonId && notification == BN_CLICKED) {
@@ -1258,8 +1305,10 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             notification == BN_CLICKED) {
             RuntimeEntry& entry = data->entries[dynamic->second];
             if (entry.definition.type == CHUI_COLOR) {
-                if (ChooseEntryColor(*data, entry))
+                if (ChooseEntryColor(*data, entry)) {
                     NotifyLiveChange(*data, entry);
+                    UpdateApplyButton(*data);
+                }
                 ApplyDependencies(*data);
                 return 0;
             }
@@ -1272,6 +1321,7 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             if (changed != data->byControlId.end())
                 NotifyLiveChange(*data, data->entries[changed->second]);
             ApplyDependencies(*data);
+            UpdateApplyButton(*data);
         }
         return 0;
     }
@@ -1287,6 +1337,7 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                 }
             }
             ApplyDependencies(*data);
+            UpdateApplyButton(*data);
         }
         return 0;
     case WM_SIZE:
@@ -1454,6 +1505,8 @@ LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
         runtime.sourceIndex = index;
         runtime.workingValue = entries[index].value[0]
             ? entries[index].value : entries[index].defaultValue;
+        runtime.baselineValue = runtime.workingValue;
+        runtime.cancelValue = entries[index].value;
         data->byId.emplace(runtime.definition.id, index);
         data->entries.push_back(std::move(runtime));
     }

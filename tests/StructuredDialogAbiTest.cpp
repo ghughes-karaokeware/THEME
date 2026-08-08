@@ -141,6 +141,14 @@ int main(int argc, char** argv)
     if (!consumeChange(notification, &changedInstance, &changedEntry) ||
         changedInstance != static_cast<DWORD>(okInstance) || changedEntry != 111 ||
         std::strcmp(entries[2].value, "0")) return 18;
+    HWND applyButton = GetDlgItem(dialog, 104);
+    if (!applyButton || !IsWindowEnabled(applyButton)) return 21;
+    SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(104, BN_CLICKED),
+        reinterpret_cast<LPARAM>(applyButton));
+    if (!consume(notification, &completedInstance, &result) ||
+        completedInstance != static_cast<DWORD>(okInstance) ||
+        result != CHUI_RESULT_APPLY || std::strcmp(entries[2].value, "0") ||
+        !IsWindow(dialog) || IsWindowEnabled(applyButton)) return 22;
     HWND okButton = GetDlgItem(dialog, IDOK);
     SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED),
         reinterpret_cast<LPARAM>(okButton));

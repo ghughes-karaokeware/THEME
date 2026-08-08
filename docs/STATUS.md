@@ -1,6 +1,6 @@
 # Current Status
 
-Updated: 2026-08-07
+Updated: 2026-08-08
 
 ## Stable baseline
 
@@ -50,6 +50,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - `CHUI_DROPDOWN` is again a true owner-drawn combo/drop-list rather than a context menu. Category/page selections use inset rounded and shaded cards, with optional `HelpText` rendered as the target-style subtitle.
 - Closed dropdown faces now receive complete DLL-owned dark rounded painting, including focus border, selected caption, and chevron. Checkboxes retain native input behavior while using compact rounded blue theme glyphs and matching focus/disabled text.
 - DLL-owned mouse tracking now supplies distinct hover feedback for category/page cards, command/detail/color buttons, dropdown faces, and checkboxes without weakening selected or pressed-state contrast.
+- The footer now includes a dirty-state-aware Apply button. Apply validates and writes all current values, signals the existing Clarion completion event with `CHUI_RESULT_APPLY`, remains open, and establishes the new Cancel baseline; OK uses the same value-application routine and then closes.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

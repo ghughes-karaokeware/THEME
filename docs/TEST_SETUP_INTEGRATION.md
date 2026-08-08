@@ -155,7 +155,7 @@ Place in `?CHUIComplete / Accepted`:
 IF CHUI_ConsumeCompletion(?CHUIComplete{PROP:Handle}, |
                           CompletedInstance,DialogResult)
   IF CompletedInstance = DialogInstance
-    IF DialogResult = CHUI_RESULT_OK
+    IF DialogResult = CHUI_RESULT_OK OR DialogResult = CHUI_RESULT_APPLY
       DO ApplyStructuredDialog
       MESSAGE('Accepted values:|' & |
               'Auto crossfade=' & TestAutoCrossfade & '|' & |
@@ -165,10 +165,14 @@ IF CHUI_ConsumeCompletion(?CHUIComplete{PROP:Handle}, |
               'Secondary output=' & TestSecondaryOutput & '|' & |
               'Sample rate=' & TestSampleRate & '|' & |
               'Exclusive=' & TestExclusiveMode)
-    ELSE
+    ELSIF DialogResult = CHUI_RESULT_CANCEL
       MESSAGE('Cancelled. The original Clarion values were preserved.')
     END
-    DialogInstance = 0
+    ! Apply uses this same event but leaves the native dialog open.
+    ! Clear the instance only after OK or Cancel closes it.
+    IF DialogResult <> CHUI_RESULT_APPLY
+      DialogInstance = 0
+    END
   END
 END
 ```
