@@ -25,6 +25,7 @@ constexpr int kPageListId = 101;
 constexpr int kBackButtonId = 102;
 constexpr int kDetailButtonId = 103;
 constexpr int kApplyButtonId = 104;
+constexpr int kResetAllButtonId = 105;
 constexpr int kFirstDynamicId = 1000;
 constexpr wchar_t kHoverProperty[] = L"CHTheme.StructuredHover";
 
@@ -409,7 +410,8 @@ void SetControlFont(HWND control, HFONT font)
 bool IsCommandButton(int id)
 {
     return id == IDOK || id == IDCANCEL || id == kBackButtonId ||
-        id == kDetailButtonId || id == kApplyButtonId;
+        id == kDetailButtonId || id == kApplyButtonId ||
+        id == kResetAllButtonId;
 }
 
 void DrawCommandButton(DialogData& data, const DRAWITEMSTRUCT& item)
@@ -1112,6 +1114,8 @@ void Render(DialogData& data)
         76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
     SetWindowPos(GetDlgItem(data.window, kApplyButtonId), nullptr, clientWidth - 92,
         buttonY, 76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(GetDlgItem(data.window, kResetAllButtonId), nullptr, 14,
+        buttonY, 150, 30, SWP_NOZORDER | SWP_NOACTIVATE);
     HWND back = GetDlgItem(data.window, kBackButtonId);
     SetWindowPos(back, nullptr, detailLeft + 8, buttonY, 76, 30,
         SWP_NOZORDER | SWP_NOACTIVATE);
@@ -1169,6 +1173,17 @@ void UpdateApplyButton(DialogData& data)
 {
     HWND apply = GetDlgItem(data.window, kApplyButtonId);
     if (IsWindow(apply)) EnableWindow(apply, HasChanges(data));
+}
+
+void ResetAllValues(DialogData& data)
+{
+    ReadAllControls(data);
+    for (auto& entry : data.entries) {
+        if (!IsValueType(entry.definition.type)) continue;
+        entry.workingValue = entry.definition.defaultValue;
+    }
+    Render(data);
+    UpdateApplyButton(data);
 }
 
 bool CommitWorkingValues(DialogData& data, bool establishBaseline)
@@ -1269,6 +1284,8 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             758, 500, 76, 30, IDCANCEL);
         AddWindow(*data, 0, L"BUTTON", L"Apply", WS_TABSTOP | BS_OWNERDRAW,
             758, 500, 76, 30, kApplyButtonId);
+        AddWindow(*data, 0, L"BUTTON", L"Reset All Settings",
+            WS_TABSTOP | BS_OWNERDRAW, 14, 500, 150, 30, kResetAllButtonId);
         AddWindow(*data, 0, L"BUTTON", L"< Back", WS_TABSTOP | BS_OWNERDRAW,
             842, 500, 76, 30, kBackButtonId);
         AddWindow(*data, 0, L"BUTTON", L"Advanced Settings...",
@@ -1298,6 +1315,13 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                 UpdateApplyButton(*data);
                 QueueCompletion(*data, CHUI_RESULT_APPLY);
             }
+            return 0;
+        }
+        if (id == kResetAllButtonId && notification == BN_CLICKED) {
+            if (MessageBoxW(data->window,
+                L"Reset all settings in this dialog to their declared defaults?",
+                data->title.c_str(), MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDYES)
+                ResetAllValues(*data);
             return 0;
         }
         if (id == kBackButtonId && notification == BN_CLICKED) {

@@ -4,6 +4,7 @@
 
 - Added ABI-compatible `CHUI_ACTION` entries and the `CHUI_ConsumeAction` export for invoking existing Clarion procedures from themed structured-dialog buttons.
 - Extended the harness to verify action validation, ID delivery, dialog persistence, isolation from the completion queue, and subsequent Cancel completion.
+- Added a themed `Reset All Settings` footer button with confirmation and transactional restoration of declared defaults; Cancel can still discard the reset.
 - Added a themed Apply button that is enabled only while structured-dialog values differ from the last accepted baseline.
 - Apply validates and writes all values, queues `CHUI_RESULT_APPLY` through the existing completion notification, keeps the dialog open, and establishes a new Cancel rollback baseline.
 - Extended the ABI harness to verify the Apply result, caller write-back, persistent dialog window, and disabled clean state.

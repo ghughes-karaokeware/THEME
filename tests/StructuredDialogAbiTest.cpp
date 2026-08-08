@@ -98,6 +98,7 @@ int main(int argc, char** argv)
     if (!dialog) return 11;
     const LONG_PTR style = GetWindowLongPtrW(dialog, GWL_STYLE);
     if (!(style & WS_THICKFRAME) || !(style & WS_MAXIMIZEBOX)) return 19;
+    if (!GetDlgItem(dialog, 105)) return 28;
     SetWindowPos(dialog, nullptr, 0, 0, 850, 500,
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     RECT clientBounds{};
