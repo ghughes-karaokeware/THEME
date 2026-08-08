@@ -1,0 +1,4 @@
+*.inc text eol=crlf
+*.clw text eol=crlf
+*.tpl text eol=crlf
+*.txa text eol=crlf
