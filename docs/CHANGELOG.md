@@ -10,6 +10,7 @@
 - Increased value-label height and enabled end ellipsis to prevent multi-line clipping into adjacent controls.
 - Replaced the fixed value-label width with font-aware per-panel measurement, keeping each panel aligned while reserving at least 100 pixels for input controls.
 - Added an `Advanced Settings...` button after returning from a nested detail panel so the third panel can be reopened without changing the selected page.
+- Replaced the standard white command buttons with DLL-owned dark rounded rendering, including blue primary, secondary, pressed, disabled, and keyboard-focus states.
 - Rebuilt Win32 Release with zero warnings and zero errors and passed the 32-bit ABI/validation/round-trip harness.
 
 ## 2026-08-06

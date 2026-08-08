@@ -188,6 +188,48 @@ void SetControlFont(HWND control, HFONT font)
         reinterpret_cast<WPARAM>(font), TRUE);
 }
 
+bool IsCommandButton(int id)
+{
+    return id == IDOK || id == IDCANCEL || id == kBackButtonId ||
+        id == kDetailButtonId;
+}
+
+void DrawCommandButton(const DRAWITEMSTRUCT& item)
+{
+    const bool disabled = (item.itemState & ODS_DISABLED) != 0;
+    const bool pressed = (item.itemState & ODS_SELECTED) != 0;
+    const bool primary = item.CtlID == IDOK;
+    const COLORREF fill = disabled ? RGB(25, 36, 48) :
+        pressed ? (primary ? RGB(0, 78, 158) : RGB(24, 47, 69)) :
+        (primary ? RGB(0, 105, 210) : RGB(18, 37, 55));
+    const COLORREF border = disabled ? RGB(48, 61, 74) :
+        (primary ? RGB(30, 132, 239) : RGB(66, 88, 108));
+    const COLORREF text = disabled ? RGB(113, 128, 142) : RGB(240, 246, 252);
+
+    RECT bounds = item.rcItem;
+    HBRUSH brush = CreateSolidBrush(fill);
+    HPEN pen = CreatePen(PS_SOLID, 1, border);
+    HGDIOBJ oldBrush = SelectObject(item.hDC, brush);
+    HGDIOBJ oldPen = SelectObject(item.hDC, pen);
+    RoundRect(item.hDC, bounds.left, bounds.top, bounds.right, bounds.bottom, 5, 5);
+    SelectObject(item.hDC, oldPen);
+    SelectObject(item.hDC, oldBrush);
+    DeleteObject(pen);
+    DeleteObject(brush);
+
+    wchar_t caption[128]{};
+    GetWindowTextW(item.hwndItem, caption, static_cast<int>(std::size(caption)));
+    SetBkMode(item.hDC, TRANSPARENT);
+    SetTextColor(item.hDC, text);
+    if (pressed) OffsetRect(&bounds, 1, 1);
+    DrawTextW(item.hDC, caption, -1, &bounds,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    if ((item.itemState & ODS_FOCUS) && !disabled) {
+        InflateRect(&bounds, -4, -4);
+        DrawFocusRect(item.hDC, &bounds);
+    }
+}
+
 HWND AddWindow(DialogData& data, DWORD exStyle, const wchar_t* className,
     const wchar_t* caption, DWORD style, int x, int y, int width, int height, int id)
 {
@@ -534,14 +576,14 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         data->pages = AddWindow(*data, 0, L"LISTBOX", L"",
             WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
             254, 48, 202, 430, kPageListId);
-        AddWindow(*data, 0, L"BUTTON", L"OK", WS_TABSTOP | BS_DEFPUSHBUTTON,
+        AddWindow(*data, 0, L"BUTTON", L"OK", WS_TABSTOP | BS_OWNERDRAW,
             674, 500, 76, 30, IDOK);
-        AddWindow(*data, 0, L"BUTTON", L"Cancel", WS_TABSTOP | BS_PUSHBUTTON,
+        AddWindow(*data, 0, L"BUTTON", L"Cancel", WS_TABSTOP | BS_OWNERDRAW,
             758, 500, 76, 30, IDCANCEL);
-        AddWindow(*data, 0, L"BUTTON", L"< Back", WS_TABSTOP | BS_PUSHBUTTON,
+        AddWindow(*data, 0, L"BUTTON", L"< Back", WS_TABSTOP | BS_OWNERDRAW,
             842, 500, 76, 30, kBackButtonId);
         AddWindow(*data, 0, L"BUTTON", L"Advanced Settings...",
-            WS_TABSTOP | BS_PUSHBUTTON, 474, 120, 150, 28, kDetailButtonId);
+            WS_TABSTOP | BS_OWNERDRAW, 474, 120, 150, 28, kDetailButtonId);
         PopulateList(data->categories, *data, 0);
         data->selectedCategory = SelectedListId(data->categories);
         PopulateList(data->pages, *data, data->selectedCategory);
@@ -608,6 +650,15 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             ApplyDependencies(*data);
         }
         return 0;
+    case WM_DRAWITEM: {
+        const auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
+        if (item && item->CtlType == ODT_BUTTON &&
+            IsCommandButton(static_cast<int>(item->CtlID))) {
+            DrawCommandButton(*item);
+            return TRUE;
+        }
+        break;
+    }
     case WM_CLOSE:
         Complete(*data, CHUI_RESULT_CANCEL);
         return 0;
