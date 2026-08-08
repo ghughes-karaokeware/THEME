@@ -8,6 +8,7 @@
 - Restored a prominent one-line-per-trailer instruction and added persistent window position/size with primary-work-area validation and clamping after display changes.
 - Replaced the reminder's unsupported dash with an ANSI-safe separator and expanded the primary action to `Set Promo-Trailers and Exit` with a drawn green confirmation icon.
 - Widened the primary action to prevent minimum-size clipping and added a custom transparent blue-and-gold megaphone icon for the Promo Designer title bar and task switcher.
+- Clarified that each line advances on successive scroller passes and renamed the option to `Auto-load these Promo-Trailers on startup` to describe the complete set rather than a selected line.
 
 ## 2026-08-08
 
