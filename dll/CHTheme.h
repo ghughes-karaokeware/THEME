@@ -171,6 +171,8 @@ LONG __stdcall CHUI_ConsumeChange(HWND completionButton,
     DWORD* instanceId, DWORD* entryId);
 LONG __stdcall CHUI_ConsumeAction(HWND completionButton,
     DWORD* instanceId, DWORD* entryId);
+LONG __stdcall CHUI_SetEntryValue(DWORD instanceId, DWORD entryId,
+    const char* value);
 
 #ifdef __cplusplus
 }

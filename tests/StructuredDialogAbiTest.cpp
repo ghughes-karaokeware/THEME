@@ -22,6 +22,7 @@ int main(int argc, char** argv)
     using Open = LONG(__stdcall*)(HWND, CHUI_DIALOG_HEADER*, CHUI_ENTRY_RECORD*, HWND);
     using Consume = LONG(__stdcall*)(HWND, DWORD*, LONG*);
     using ConsumeChange = LONG(__stdcall*)(HWND, DWORD*, DWORD*);
+    using SetEntryValue = LONG(__stdcall*)(DWORD, DWORD, const char*);
     const GetValue getVersion = Load<GetValue>(module, "CHUI_GetAbiVersion");
     const GetValue getHeaderSize = Load<GetValue>(module, "CHUI_GetHeaderSize");
     const GetValue getEntrySize = Load<GetValue>(module, "CHUI_GetEntrySize");
@@ -32,8 +33,11 @@ int main(int argc, char** argv)
         "CHUI_ConsumeChange");
     const ConsumeChange consumeAction = Load<ConsumeChange>(module,
         "CHUI_ConsumeAction");
+    const SetEntryValue setEntryValue = Load<SetEntryValue>(module,
+        "CHUI_SetEntryValue");
     if (!getVersion || !getHeaderSize || !getEntrySize || !validate ||
-        !openDialog || !consume || !consumeChange || !consumeAction) return 4;
+        !openDialog || !consume || !consumeChange || !consumeAction ||
+        !setEntryValue) return 4;
 
     if (getVersion() != 0x00010000 ||
         getHeaderSize() != sizeof(CHUI_DIALOG_HEADER) ||
@@ -136,7 +140,11 @@ int main(int argc, char** argv)
     if (!dialog) return 14;
     HWND checkbox = GetDlgItem(dialog, 1002);
     if (!checkbox) return 15;
-    SendMessageW(checkbox, BM_SETCHECK, BST_UNCHECKED, 0);
+    if (!setEntryValue(static_cast<DWORD>(okInstance), 111, "0") ||
+        setEntryValue(static_cast<DWORD>(okInstance), 111, "invalid")) return 29;
+    checkbox = GetDlgItem(dialog, 1002);
+    if (!checkbox || SendMessageW(checkbox, BM_GETCHECK, 0, 0) != BST_UNCHECKED)
+        return 30;
     SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(1002, BN_CLICKED),
         reinterpret_cast<LPARAM>(checkbox));
     DWORD changedInstance = 0;

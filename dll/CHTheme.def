@@ -66,3 +66,4 @@ EXPORTS
     CHUI_ConsumeCompletion    = _CHUI_ConsumeCompletion@12
     CHUI_ConsumeChange        = _CHUI_ConsumeChange@12
     CHUI_ConsumeAction        = _CHUI_ConsumeAction@12
+    CHUI_SetEntryValue        = _CHUI_SetEntryValue@12

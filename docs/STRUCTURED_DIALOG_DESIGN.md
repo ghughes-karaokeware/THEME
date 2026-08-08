@@ -15,6 +15,7 @@ Updated: 2026-08-07
 - Clarion owns the memory and keeps it alive until the single completion notification.
 - The DLL copies definitions and working values internally. Cancel and title-bar close leave Clarion memory untouched. OK copies accepted values only into the original entries' `Value` fields.
 - The DLL releases every caller pointer before posting completion.
+- Action handlers may synchronously return a new value through `CHUI_SetEntryValue`. The DLL copies at most the fixed ABI value capacity, validates enumerated and Boolean values, and never retains the supplied C string.
 
 ## Initial entry model
 

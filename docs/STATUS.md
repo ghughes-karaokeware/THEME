@@ -53,6 +53,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - The footer now includes a dirty-state-aware Apply button. Apply validates and writes all current values, signals the existing Clarion completion event with `CHUI_RESULT_APPLY`, remains open, and establishes the new Cancel baseline; OK uses the same value-application routine and then closes.
 - `CHUI_ACTION` entries render as themed, hover-aware buttons and signal the existing hidden Clarion notification control without closing the dialog or changing its dirty state. `CHUI_ConsumeAction` returns the dialog instance and action entry ID so CompuHost can invoke its existing device, file-management, and advanced-settings procedures.
 - The target-style `Reset All Settings` footer action asks for confirmation, loads every value entry's declared default into the dialog working copy, refreshes dependencies, and participates in normal Apply/OK/Cancel transactions without persisting immediately.
+- `CHUI_SetEntryValue` lets an action handler safely return a bounded UTF-8 value to any value entry in the still-open dialog. The DLL validates dropdown and Boolean replacements, refreshes visible controls and dependencies, and updates the Apply dirty state without prematurely committing caller memory.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

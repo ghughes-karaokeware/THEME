@@ -28,11 +28,13 @@ constexpr int kApplyButtonId = 104;
 constexpr int kResetAllButtonId = 105;
 constexpr int kFirstDynamicId = 1000;
 constexpr wchar_t kHoverProperty[] = L"CHTheme.StructuredHover";
+constexpr UINT kSetEntryValueMessage = WM_APP + 0x351;
 
 struct Option { std::string value; std::wstring caption; };
 struct Completion { DWORD instanceId; LONG result; };
 struct Change { DWORD instanceId; DWORD entryId; };
 struct Action { DWORD instanceId; DWORD entryId; };
+struct SetEntryValueRequest { DWORD entryId; std::string value; };
 
 struct RuntimeEntry
 {
@@ -77,6 +79,7 @@ struct DialogData
 
 std::mutex g_mutex;
 std::unordered_map<HWND, HWND> g_byOwner;
+std::unordered_map<DWORD, HWND> g_byInstance;
 std::unordered_map<HWND, std::deque<Completion>> g_completions;
 std::unordered_map<HWND, std::deque<Change>> g_changes;
 std::unordered_map<HWND, std::deque<Action>> g_actions;
@@ -1235,6 +1238,7 @@ void NotifyCompletion(DialogData& data)
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_byOwner.erase(data.owner);
+        g_byInstance.erase(data.instanceId);
     }
     QueueCompletion(data, data.committed ? CHUI_RESULT_OK : CHUI_RESULT_CANCEL);
 }
@@ -1251,6 +1255,26 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
     if (!data) return DefWindowProcW(window, message, wParam, lParam);
 
     switch (message) {
+    case kSetEntryValueMessage: {
+        auto* request = reinterpret_cast<SetEntryValueRequest*>(lParam);
+        if (!request) return FALSE;
+        RuntimeEntry* entry = FindEntry(*data, request->entryId);
+        if (!entry || !IsValueType(entry->definition.type)) return FALSE;
+        if (entry->definition.type == CHUI_DROPDOWN) {
+            const auto options = ParseOptions(entry->definition.options);
+            if (std::none_of(options.begin(), options.end(),
+                [&](const Option& option) { return option.value == request->value; }))
+                return FALSE;
+        }
+        if ((entry->definition.type == CHUI_CHECKBOX ||
+            entry->definition.type == CHUI_RADIO) &&
+            request->value != "0" && request->value != "1") return FALSE;
+        ReadAllControls(*data);
+        entry->workingValue = request->value;
+        Render(*data);
+        UpdateApplyButton(*data);
+        return TRUE;
+    }
     case WM_CREATE: {
         data->backgroundBrush = CreateSolidBrush(RGB(5, 13, 22));
         data->surfaceBrush = CreateSolidBrush(RGB(13, 27, 40));
@@ -1589,6 +1613,7 @@ LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_byOwner[ownerWindow] = window;
+        g_byInstance[data->instanceId] = window;
     }
     ShowWindow(window, SW_SHOW);
     UpdateWindow(window);
@@ -1638,4 +1663,23 @@ LONG __stdcall CHUI_ConsumeAction(HWND completionButton,
     *instanceId = action.instanceId;
     *entryId = action.entryId;
     return TRUE;
+}
+
+LONG __stdcall CHUI_SetEntryValue(DWORD instanceId, DWORD entryId,
+    const char* value)
+{
+    if (!instanceId || !entryId || !value) return FALSE;
+    const size_t length = strnlen_s(value, sizeof(CHUI_ENTRY_RECORD::value));
+    if (length >= sizeof(CHUI_ENTRY_RECORD::value)) return FALSE;
+    HWND window = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        const auto found = g_byInstance.find(instanceId);
+        if (found == g_byInstance.end()) return FALSE;
+        window = found->second;
+    }
+    if (!IsWindow(window)) return FALSE;
+    SetEntryValueRequest request{ entryId, std::string(value, length) };
+    return static_cast<LONG>(SendMessageW(window, kSetEntryValueMessage, 0,
+        reinterpret_cast<LPARAM>(&request)) != FALSE);
 }

@@ -26,6 +26,7 @@ CHUI_OpenDialog(LONG OwnerHwnd,LONG HeaderAddress,LONG EntriesAddress,LONG Compl
 CHUI_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DialogResult),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
 CHUI_ConsumeChange(LONG CompletionButtonHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeChange')
 CHUI_ConsumeAction(LONG CompletionButtonHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeAction')
+CHUI_SetEntryValue(ULONG InstanceID,ULONG EntryID,*CSTRING Value),LONG,PASCAL,RAW,NAME('CHUI_SetEntryValue')
      END
 ```
 
@@ -159,7 +160,8 @@ IF CHUI_ConsumeAction(?CHUIComplete{PROP:Handle}, |
     CASE ChangedEntryID
     OF 401
       SelectAudioDevice
-      ! Update the applicable DialogEntries[].Value after the procedure returns.
+      ! Feed the returned stable value back into the still-open working dialog.
+      CHUI_SetEntryValue(DialogInstance,AudioDeviceEntryID,SelectedDeviceValue)
     END
   END
 END
