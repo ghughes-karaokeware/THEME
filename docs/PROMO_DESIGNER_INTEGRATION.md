@@ -205,3 +205,4 @@ The staged DLL contains the exports, but the current Clarion-format `CHTheme.lib
 - Closing the designer with the title-bar X is treated as Cancel.
 - `PromoDesignerInstance` must be cleared only after consuming the matching completion.
 - The first Load/Save dialog opens in the launching application's folder. After a successful `.PRM` read or write, the DLL remembers that folder per Windows user at `HKCU\Software\Karaokeware\CHTheme\PromoDesigner\LastPrmFolder`; no Clarion path variable is required.
+- The DLL stores the normal window rectangle in the same registry key as `WindowRect`. Each launch constrains it to the current primary desktop work area, preserving position and size without allowing a resolution or monitor change to strand the dialog off-screen.
