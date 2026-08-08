@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CompuHost V4 Structured Setup Dialog</title>
 <style>
-body{margin:0;background:#f4f7fb;color:#182333;font:15px/1.55 "Segoe UI",Arial,sans-serif}header{padding:34px max(22px,calc((100% - 1050px)/2));color:#fff;background:linear-gradient(130deg,#0c233b,#0877d1)}main{max-width:1050px;margin:24px auto 60px;padding:0 18px}section{margin:18px 0;padding:24px;background:#fff;border:1px solid #d8e0ea;border-radius:10px}h1,h2,h3{line-height:1.2}h2{margin-top:0}code{background:#e9f4ff;color:#07538e;padding:1px 4px;border-radius:3px}pre{overflow:auto;background:#101a27;color:#eaf2fa;padding:15px;border-radius:8px;font:13px/1.45 Consolas,monospace}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #d8e0ea;text-align:left;vertical-align:top}.note{padding:12px 14px;border-left:4px solid #0877d1;background:#e9f4ff}.warn{border-color:#a86100;background:#fff6e8}@media print{body{background:#fff}section{border:0;border-bottom:1px solid #aaa;break-inside:avoid}}
+body{margin:0;background:#f4f7fb;color:#182333;font:15px/1.55 "Segoe UI",Arial,sans-serif}header{padding:34px max(22px,calc((100% - 1050px)/2));color:#fff;background:linear-gradient(130deg,#0c233b,#0877d1)}main{max-width:1050px;margin:24px auto 60px;padding:0 18px}section{margin:18px 0;padding:24px;background:#fff;border:1px solid #d8e0ea;border-radius:10px}h1,h2,h3{line-height:1.2}h2{margin-top:0}code{background:#e9f4ff;color:#07538e;padding:1px 4px;border-radius:3px}pre{overflow:auto;background:#101a27;color:#eaf2fa;padding:15px;border-radius:8px;font:13px/1.45 Consolas,monospace}pre code{display:block;padding:0;background:transparent;color:inherit;border-radius:0}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #d8e0ea;text-align:left;vertical-align:top}.note{padding:12px 14px;border-left:4px solid #0877d1;background:#e9f4ff}.warn{border-color:#a86100;background:#fff6e8}@media print{body{background:#fff}section{border:0;border-bottom:1px solid #aaa;break-inside:avoid}}
 </style></head><body>
 <header><h1>CompuHost V4 Structured Setup Dialog</h1><p>Clarion 10 integration, migration, callbacks, and testing for the CHTheme release candidate.</p><small>Updated August 8, 2026 · ABI 00020000H · Header 256 bytes · Entry 5376 bytes</small></header>
 <main>
@@ -108,9 +108,107 @@ DialogEntries[F].Value = CLIP(CDEHeadingFont[1].Face) &amp; '|' &amp; |
 <section><h2>8. Live change and action handling</h2><p>Set the live-change flag only on settings that are safe and useful to preview immediately. In <code>HandleStructuredChange</code>, use <code>ChangedEntryID</code> to apply only that setting. For existing selectors such as audio-device discovery, declare a <code>CHUI_ACTION</code>; call the Clarion routine in <code>HandleStructuredAction</code>, then return the selected stable value to the open dialog:</p><pre><code>SelectedValue = SelectedAudioDeviceID
 CHUI_SetEntryValue(DialogInstance,AudioDeviceEntryID,SelectedValue)</code></pre><p class="note warn">Do not send pointers to Clarion queues or temporary variables. Send stable text values through <code>Value</code>; keep all dynamic queue and device discovery logic in Clarion.</p></section>
 
-<section><h2>9. Migration sequence</h2><ol><li>Back up the current CompuHost V4 EXE folder and verify no CompuHost/test process is running.</li><li>Install the RC DLL, Clarion import library, include, and sample.</li><li>Add the include and MAP imports.</li><li>Add the exact procedure structures and hidden callback button.</li><li>Copy the sample routines and replace test variables with actual CompuHost globals one group at a time.</li><li>Wire existing audio/CDE procedures through action and change IDs; do not open old child dialogs.</li><li>Regenerate, clean-build, and verify the DLL hash beside the EXE.</li><li>Test Cancel first, then Apply, then OK, then restart persistence.</li></ol></section>
+<section><h2>9. Paste-ready supporting routines</h2><p>Replace the test variables and IDs with corresponding CompuHost globals, while retaining this ownership and callback pattern.</p>
+<h3>Load current values</h3><pre><code>LoadCompuHostSampleData ROUTINE
+  TestAutoCrossfade = 1
+  TestAudioMode = 'WASAPI_SHARED'
+  TestBackgroundImage = ''
+  TestRecordingFolder = ''
+  LOOP FontIndex = 1 TO 5
+    CDEHeadingFont[FontIndex].Face = 'Segoe UI'
+    CDEHeadingFont[FontIndex].Style = CDE_BACKDROP_STYLE_BOLD
+    CDEHeadingFont[FontIndex].Color = 00FFFFFFH
+  END</code></pre>
+<h3>Prepare representative entries</h3><pre><code>PrepareStructuredDialog ROUTINE
+  CLEAR(DialogHeader)
+  CLEAR(DialogEntries)
+  DialogHeader.Version = CHUI_ABI_VERSION
+  DialogHeader.HeaderSize = SIZE(DialogHeader)
+  DialogHeader.EntrySize = SIZE(DialogEntries[1])
+  DialogHeader.EntryCount = 6
+  DialogHeader.Title = 'CompuHost V4 - Setup'
 
-<section><h2>10. Release-candidate test checklist</h2><ul><li>Open only one Setup instance; owner stays responsive.</li><li>Resize to minimum and maximum; OK, Cancel, and Apply remain visible.</li><li>Hover navigation, buttons, dropdowns, and checks; styling remains modern.</li><li>Exercise two-panel and advanced three-panel pages; no empty panels.</li><li>Verify dependencies enable/hide correctly.</li><li>File and folder Browse return only the selected path.</li><li>Each heading FONT button opens pre-populated; face/style/color return together; preview is visible; size is unavailable.</li><li>Live-change entries trigger the correct entry ID only.</li><li>Action entries call Clarion and update the open dialog.</li><li>Cancel preserves pre-open values; Apply commits and remains open; OK commits and closes.</li><li>Closing CompuHost is blocked while Setup is open.</li></ul></section>
+  DialogEntries[1].Type = CHUI_PANEL
+  DialogEntries[1].ID = 100
+  DialogEntries[1].IconID = CHUI_ICON_DISPLAY
+  DialogEntries[1].Caption = 'Displays'
+  DialogEntries[2].Type = CHUI_PANEL
+  DialogEntries[2].ID = 200
+  DialogEntries[2].ParentID = 100
+  DialogEntries[2].Caption = 'Performer Text'
+  DialogEntries[3].Type = CHUI_ENTRY
+  DialogEntries[3].ID = 310
+  DialogEntries[3].ParentID = 200
+  DialogEntries[3].Flags = CHUI_FLAG_LIVE_NOTIFY
+  DialogEntries[3].Caption = 'Display heading line 1'
+  DialogEntries[3].Value = CDEHeadingText[1]
+  DialogEntries[4].Type = CHUI_FONT
+  DialogEntries[4].ID = 410
+  DialogEntries[4].ParentID = 200
+  DialogEntries[4].DependencyID = 310
+  DialogEntries[4].DependencyOperator = CHUI_DEPEND_NONE
+  DialogEntries[4].Caption = 'Heading line 1 font'
+  DialogEntries[4].Value = CLIP(CDEHeadingFont[1].Face) &amp; '|' &amp; |
+                           CDEHeadingFont[1].Style &amp; '|' &amp; |
+                           CDEHeadingFont[1].Color
+  DialogEntries[5].Type = CHUI_FILE
+  DialogEntries[5].ID = 510
+  DialogEntries[5].ParentID = 200
+  DialogEntries[5].Caption = 'Background image'
+  DialogEntries[5].Options = '*.png=PNG images|*.jpg;*.jpeg=JPEG images|*.*=All files'
+  DialogEntries[5].Value = TestBackgroundImage
+  DialogEntries[6].Type = CHUI_FOLDER
+  DialogEntries[6].ID = 520
+  DialogEntries[6].ParentID = 200
+  DialogEntries[6].Caption = 'Recording folder'
+  DialogEntries[6].Value = TestRecordingFolder</code></pre>
+<h3>Accept and decode values</h3><pre><code>ApplyStructuredDialog ROUTINE
+  CDEHeadingText[1] = DialogEntries[3].Value
+  TestBackgroundImage = DialogEntries[5].Value
+  TestRecordingFolder = DialogEntries[6].Value
+  FontValue = DialogEntries[4].Value
+  FontSeparator1 = INSTRING('|',FontValue,1,1)
+  FontSeparator2 = INSTRING('|',FontValue,1,FontSeparator1 + 1)
+  IF FontSeparator1 AND FontSeparator2
+    CDEHeadingFont[1].Face = FontValue[1 : FontSeparator1 - 1]
+    CDEHeadingFont[1].Style = FontValue[FontSeparator1 + 1 : FontSeparator2 - 1]
+    CDEHeadingFont[1].Color = FontValue[FontSeparator2 + 1 : LEN(CLIP(FontValue))]
+  END</code></pre>
+<h3>Apply to CDE and handle a live change</h3><pre><code>ApplyCompuHostRuntimeChanges ROUTINE
+  BackdropText = CDEHeadingText[1]
+  CDEResult = CDE_SetBackdropLine( |
+    CDE_BACKDROP_LINE_HEADING,BackdropText, |
+    CDEHeadingFont[1].Face,60,CDEHeadingFont[1].Color, |
+    CDEHeadingFont[1].Style,100)
+
+HandleStructuredChange ROUTINE
+  CASE ChangedEntryID
+  OF 310
+    BackdropText = DialogEntries[3].Value
+    CDEResult = CDE_SetBackdropLine( |
+      CDE_BACKDROP_LINE_HEADING,BackdropText, |
+      CDEHeadingFont[1].Face,60,CDEHeadingFont[1].Color, |
+      CDEHeadingFont[1].Style,100)
+  END</code></pre>
+<h3>Handle an action and protect owner closure</h3><pre><code>HandleStructuredAction ROUTINE
+  CASE ChangedEntryID
+  OF AudioRefreshActionID
+    DO ReloadAudioDeviceQueue
+    SelectedValue = CurrentAudioDeviceID
+    DialogStatus = CHUI_SetEntryValue( |
+      DialogInstance,AudioDeviceEntryID,SelectedValue)
+  END
+
+! Main window EVENT:CloseWindow
+IF DialogInstance
+  MESSAGE('Close the Setup dialog before closing CompuHost V4.')
+  CYCLE
+END</code></pre>
+<p class="note"><strong>Full reference:</strong> <a href="CompuHostV4-StructuredSetup-Sample.clw.txt">open the complete Clarion sample</a> for declarations, all five font groups, complete entry construction, callback management, and additional entry types.</p></section>
+
+<section><h2>10. Migration sequence</h2><ol><li>Back up the current CompuHost V4 EXE folder and verify no CompuHost/test process is running.</li><li>Install the RC DLL, Clarion import library, include, and sample.</li><li>Add the include and MAP imports.</li><li>Add the exact procedure structures and hidden callback button.</li><li>Copy the sample routines and replace test variables with actual CompuHost globals one group at a time.</li><li>Wire existing audio/CDE procedures through action and change IDs; do not open old child dialogs.</li><li>Regenerate, clean-build, and verify the DLL hash beside the EXE.</li><li>Test Cancel first, then Apply, then OK, then restart persistence.</li></ol></section>
+
+<section><h2>11. Release-candidate test checklist</h2><ul><li>Open only one Setup instance; owner stays responsive.</li><li>Resize to minimum and maximum; OK, Cancel, and Apply remain visible.</li><li>Hover navigation, buttons, dropdowns, and checks; styling remains modern.</li><li>Exercise two-panel and advanced three-panel pages; no empty panels.</li><li>Verify dependencies enable/hide correctly.</li><li>File and folder Browse return only the selected path.</li><li>Each heading FONT button opens pre-populated; face/style/color return together; preview is visible; size is unavailable.</li><li>Live-change entries trigger the correct entry ID only.</li><li>Action entries call Clarion and update the open dialog.</li><li>Cancel preserves pre-open values; Apply commits and remains open; OK commits and closes.</li><li>Closing CompuHost is blocked while Setup is open.</li></ul></section>
 
 <section><h2>Troubleshooting</h2><table><tr><th>Symptom</th><th>Check</th></tr><tr><td>Unresolved <code>CHUI_*</code></td><td>Regenerate the Clarion-format <code>CHTheme.lib</code> from the RC DLL and link that library, not the Visual C++ import library.</td></tr><tr><td>Validation returns -1</td><td>ABI equates, exact field order, array address, EntryCount, and CRLF include.</td></tr><tr><td>Old DLL loads</td><td>Hash the DLL beside the running EXE; Clarion generation can recopy accessory files.</td></tr><tr><td>Font dialog not populated</td><td>Pass <code>Face|StyleMask|Color</code> in the font entry Value before opening.</td></tr><tr><td>Apply does nothing</td><td>Consume completion, handle <code>CHUI_RESULT_APPLY</code>, copy values, and call the runtime apply routine.</td></tr></table></section>
 </main></body></html>

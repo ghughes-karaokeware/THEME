@@ -2,6 +2,7 @@
 
 ## 2026-08-08
 
+- Corrected the Structured Setup guide's code-block contrast and added paste-ready Clarion supporting routines for loading, preparing, accepting/decoding, applying, live changes, actions, and close protection.
 - Rebuilt the Structured Setup Win32 Release candidate with zero warnings/errors and passed the 32-bit ABI validation/round-trip harness.
 - Backed up every active deployed DLL/library/include/document target, then hash-verified the RC DLL across ten runtime locations and the Clarion import library across nine linker locations.
 - Added a dedicated hand-holding Structured Setup integration guide and linked it from the main Modern Theme Extensions guide; installed both guides and the paste-ready Clarion sample in the Karaokeware accessory documentation folder.
