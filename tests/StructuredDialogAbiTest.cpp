@@ -53,6 +53,13 @@ int main(int argc, char** argv)
     entries[2].type = CHUI_DROPDOWN;
     entries[2].id = 111;
     entries[2].parentId = 110;
+    entries[2].type = CHUI_COLOR;
+    entries[2].options[0] = '\0';
+    strcpy_s(entries[2].value, "16711680");
+    if (validate(&header, entries) != CHUI_STATUS_OK) return 17;
+    entries[2].type = CHUI_DROPDOWN;
+    strcpy_s(entries[2].value, "SHARED");
+    strcpy_s(entries[2].options, "SHARED=Shared|EXCLUSIVE=Exclusive");
     strcpy_s(entries[2].caption, "Mode");
     strcpy_s(entries[2].value, "SHARED");
     strcpy_s(entries[2].defaultValue, "SHARED");

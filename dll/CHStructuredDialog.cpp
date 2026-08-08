@@ -1,6 +1,7 @@
 #include "CHTheme.h"
 
 #include <commctrl.h>
+#include <commdlg.h>
 #include <dwmapi.h>
 #include <uxtheme.h>
 #include <algorithm>
@@ -126,7 +127,7 @@ std::vector<Option> ParseOptions(const char* definition)
 
 bool IsValueType(DWORD type)
 {
-    return type >= CHUI_ENTRY && type <= CHUI_SLIDER;
+    return type >= CHUI_ENTRY && type <= CHUI_COLOR;
 }
 
 LONG Validate(const CHUI_DIALOG_HEADER* header, const CHUI_ENTRY_RECORD* entries)
@@ -409,6 +410,56 @@ void DrawCommandButton(DialogData& data, const DRAWITEMSTRUCT& item)
     }
 }
 
+void DrawColorButton(RuntimeEntry& entry, const DRAWITEMSTRUCT& item)
+{
+    unsigned long numeric = 0;
+    std::from_chars(entry.workingValue.data(),
+        entry.workingValue.data() + entry.workingValue.size(), numeric);
+    RECT bounds = item.rcItem;
+    HBRUSH background = CreateSolidBrush(RGB(18, 37, 55));
+    FillRect(item.hDC, &bounds, background);
+    DeleteObject(background);
+    HBRUSH border = CreateSolidBrush(RGB(66, 88, 108));
+    FrameRect(item.hDC, &bounds, border);
+    DeleteObject(border);
+    RECT swatch = bounds;
+    swatch.left += 7;
+    swatch.top += 5;
+    swatch.right = swatch.left + 38;
+    swatch.bottom -= 5;
+    HBRUSH color = CreateSolidBrush(static_cast<COLORREF>(numeric));
+    FillRect(item.hDC, &swatch, color);
+    DeleteObject(color);
+    FrameRect(item.hDC, &swatch, static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)));
+    RECT text = bounds;
+    text.left = swatch.right + 10;
+    SetBkMode(item.hDC, TRANSPARENT);
+    SetTextColor(item.hDC, RGB(240, 246, 252));
+    DrawTextW(item.hDC, L"Choose...", -1, &text,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    if (item.itemState & ODS_FOCUS) {
+        InflateRect(&bounds, -3, -3);
+        DrawFocusRect(item.hDC, &bounds);
+    }
+}
+
+bool ChooseEntryColor(DialogData& data, RuntimeEntry& entry)
+{
+    unsigned long numeric = 0;
+    std::from_chars(entry.workingValue.data(),
+        entry.workingValue.data() + entry.workingValue.size(), numeric);
+    static COLORREF customColors[16]{};
+    CHOOSECOLORW picker{ sizeof(picker) };
+    picker.hwndOwner = data.window;
+    picker.rgbResult = static_cast<COLORREF>(numeric);
+    picker.lpCustColors = customColors;
+    picker.Flags = CC_FULLOPEN | CC_RGBINIT;
+    if (!ChooseColorW(&picker)) return false;
+    entry.workingValue = std::to_string(static_cast<unsigned long>(picker.rgbResult));
+    InvalidateRect(entry.control, nullptr, TRUE);
+    return true;
+}
+
 HWND AddWindow(DialogData& data, DWORD exStyle, const wchar_t* className,
     const wchar_t* caption, DWORD style, int x, int y, int width, int height, int id)
 {
@@ -470,6 +521,8 @@ void ReadControl(RuntimeEntry& entry)
 {
     if (!IsWindow(entry.control)) return;
     switch (entry.definition.type) {
+    case CHUI_COLOR:
+        break;
     case CHUI_CHECKBOX:
     case CHUI_RADIO:
         entry.workingValue = SendMessageW(entry.control, BM_GETCHECK, 0, 0) == BST_CHECKED
@@ -588,7 +641,10 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
     } else {
         AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT,
             left, y + 5, labelWidth - 8, 24, id + 600);
-        if (entry.definition.type == CHUI_DROPDOWN) {
+        if (entry.definition.type == CHUI_COLOR) {
+            entry.control = AddWindow(data, 0, L"BUTTON", L"Choose...",
+                WS_TABSTOP | BS_OWNERDRAW, controlX, y, controlWidth, 26, id);
+        } else if (entry.definition.type == CHUI_DROPDOWN) {
             entry.control = AddWindow(data, 0, WC_COMBOBOXW, L"",
                 WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
                 controlX, y, controlWidth, 220, id);
@@ -692,6 +748,18 @@ bool ValidateWorkingValues(DialogData& data)
                 parsed.ptr != entry.workingValue.data() + entry.workingValue.size() ||
                 number < entry.definition.minimum || number > entry.definition.maximum) {
                 MessageBoxW(data.window, L"A numeric value is outside its permitted range.",
+                    data.title.c_str(), MB_OK | MB_ICONWARNING);
+                return false;
+            }
+        }
+        if (entry.definition.type == CHUI_COLOR) {
+            unsigned long color = 0;
+            const auto parsed = std::from_chars(entry.workingValue.data(),
+                entry.workingValue.data() + entry.workingValue.size(), color);
+            if (parsed.ec != std::errc{} ||
+                parsed.ptr != entry.workingValue.data() + entry.workingValue.size() ||
+                color > 0x00FFFFFFUL) {
+                MessageBoxW(data.window, L"A color value is invalid.",
                     data.title.c_str(), MB_OK | MB_ICONWARNING);
                 return false;
             }
@@ -819,6 +887,16 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             Render(*data);
             return 0;
         }
+        const auto dynamic = data->byControlId.find(id);
+        if (!data->rendering && dynamic != data->byControlId.end() &&
+            notification == BN_CLICKED) {
+            RuntimeEntry& entry = data->entries[dynamic->second];
+            if (entry.definition.type == CHUI_COLOR) {
+                ChooseEntryColor(*data, entry);
+                ApplyDependencies(*data);
+                return 0;
+            }
+        }
         if (!data->rendering && id >= kFirstDynamicId &&
             (notification == BN_CLICKED || notification == CBN_SELCHANGE ||
              notification == EN_CHANGE)) {
@@ -850,6 +928,16 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             IsCommandButton(static_cast<int>(item->CtlID))) {
             DrawCommandButton(*data, *item);
             return TRUE;
+        }
+        if (item && item->CtlType == ODT_BUTTON) {
+            const auto dynamic = data->byControlId.find(static_cast<int>(item->CtlID));
+            if (dynamic != data->byControlId.end()) {
+                RuntimeEntry& entry = data->entries[dynamic->second];
+                if (entry.definition.type == CHUI_COLOR) {
+                    DrawColorButton(entry, *item);
+                    return TRUE;
+                }
+            }
         }
         break;
     }
