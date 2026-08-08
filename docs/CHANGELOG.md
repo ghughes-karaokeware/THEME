@@ -12,6 +12,7 @@
 - Corrected minimum-size footer clipping by positioning against the actual client height, and replaced square native dropdown faces with rounded shaded owner-drawn selectors while preserving the existing dropdown ABI and live notifications.
 - Restored real attached dropdown-list behavior with dark owner-drawn items, and moved the rounded/shaded card treatment to category/page navigation where it appears in the target design; navigation `HelpText` now renders as a subtitle.
 - Subclassed the closed combo face and checkbox paint path so Windows no longer exposes classic white arrow buttons or checkbox squares, while preserving native interaction and existing structured-dialog ABI behavior.
+- Added explicit `TrackMouseEvent` hover tracking and repaint states across navigation cards, owner-drawn buttons, dropdowns, color controls, and checkboxes.
 - Verified the Structured Dialog proof of concept from Clarion in both two-panel and three-panel configurations.
 - Preserved ABI version `00010000H` and all existing Clarion integration declarations.
 - Enabled Windows dark styling for the native title bar and child controls.

@@ -25,6 +25,7 @@ constexpr int kPageListId = 101;
 constexpr int kBackButtonId = 102;
 constexpr int kDetailButtonId = 103;
 constexpr int kFirstDynamicId = 1000;
+constexpr wchar_t kHoverProperty[] = L"CHTheme.StructuredHover";
 
 struct Option { std::string value; std::wstring caption; };
 struct Completion { DWORD instanceId; LONG result; };
@@ -52,6 +53,8 @@ struct DialogData
     DWORD selectedCategory = 0;
     DWORD selectedPage = 0;
     DWORD selectedDetail = 0;
+    int hoveredCategory = -1;
+    int hoveredPage = -1;
     std::wstring title;
     std::vector<RuntimeEntry> entries;
     std::unordered_map<DWORD, size_t> byId;
@@ -315,15 +318,20 @@ void DrawNavigationItem(DialogData& data, const DRAWITEMSTRUCT& item)
 {
     if (item.itemID == static_cast<UINT>(-1)) return;
     const bool selected = (item.itemState & ODS_SELECTED) != 0;
+    const bool hovered = item.CtlID == kCategoryListId
+        ? data.hoveredCategory == static_cast<int>(item.itemID)
+        : data.hoveredPage == static_cast<int>(item.itemID);
     const COLORREF foreground = selected ? RGB(255, 255, 255) : RGB(218, 229, 239);
     HBRUSH brush = CreateSolidBrush(RGB(16, 31, 46));
     FillRect(item.hDC, &item.rcItem, brush);
     DeleteObject(brush);
-    if (selected) {
+    if (selected || hovered) {
         RECT card = item.rcItem;
         InflateRect(&card, -3, -2);
-        HBRUSH selectedBrush = CreateSolidBrush(RGB(9, 76, 164));
-        HPEN selectedPen = CreatePen(PS_SOLID, 1, RGB(25, 119, 229));
+        HBRUSH selectedBrush = CreateSolidBrush(selected
+            ? RGB(9, 76, 164) : RGB(25, 48, 69));
+        HPEN selectedPen = CreatePen(PS_SOLID, 1, selected
+            ? RGB(25, 119, 229) : RGB(55, 82, 105));
         HGDIOBJ oldBrush = SelectObject(item.hDC, selectedBrush);
         HGDIOBJ oldPen = SelectObject(item.hDC, selectedPen);
         RoundRect(item.hDC, card.left, card.top, card.right, card.bottom, 7, 7);
@@ -336,7 +344,8 @@ void DrawNavigationItem(DialogData& data, const DRAWITEMSTRUCT& item)
         shade.right -= 2;
         shade.top += 2;
         shade.bottom = shade.top + 3;
-        HBRUSH shadeBrush = CreateSolidBrush(RGB(18, 94, 190));
+        HBRUSH shadeBrush = CreateSolidBrush(selected
+            ? RGB(18, 94, 190) : RGB(31, 59, 83));
         FillRect(item.hDC, &shade, shadeBrush);
         DeleteObject(shadeBrush);
     }
@@ -397,9 +406,11 @@ void DrawCommandButton(DialogData& data, const DRAWITEMSTRUCT& item)
 {
     const bool disabled = (item.itemState & ODS_DISABLED) != 0;
     const bool pressed = (item.itemState & ODS_SELECTED) != 0;
+    const bool hovered = GetPropW(item.hwndItem, kHoverProperty) != nullptr;
     const bool primary = item.CtlID == IDOK;
     const COLORREF fill = disabled ? RGB(25, 36, 48) :
         pressed ? (primary ? RGB(0, 78, 158) : RGB(24, 47, 69)) :
+        hovered ? (primary ? RGB(12, 119, 228) : RGB(27, 52, 75)) :
         (primary ? RGB(0, 105, 210) : RGB(18, 37, 55));
     const COLORREF border = disabled ? RGB(48, 61, 74) :
         (primary ? RGB(30, 132, 239) : RGB(66, 88, 108));
@@ -451,7 +462,9 @@ void DrawColorButton(RuntimeEntry& entry, const DRAWITEMSTRUCT& item)
     std::from_chars(entry.workingValue.data(),
         entry.workingValue.data() + entry.workingValue.size(), numeric);
     RECT bounds = item.rcItem;
-    HBRUSH background = CreateSolidBrush(RGB(18, 37, 55));
+    const bool hovered = GetPropW(item.hwndItem, kHoverProperty) != nullptr;
+    HBRUSH background = CreateSolidBrush(hovered
+        ? RGB(27, 52, 75) : RGB(18, 37, 55));
     FillRect(item.hDC, &bounds, background);
     DeleteObject(background);
     HBRUSH border = CreateSolidBrush(RGB(66, 88, 108));
@@ -529,9 +542,12 @@ void PaintModernCombo(HWND control, HDC dc)
     GetClientRect(control, &bounds);
     const bool enabled = IsWindowEnabled(control) != FALSE;
     const bool focused = GetFocus() == control;
-    HBRUSH brush = CreateSolidBrush(enabled ? RGB(18, 34, 49) : RGB(20, 31, 42));
+    const bool hovered = GetPropW(control, kHoverProperty) != nullptr;
+    HBRUSH brush = CreateSolidBrush(enabled
+        ? (hovered ? RGB(24, 45, 63) : RGB(18, 34, 49)) : RGB(20, 31, 42));
     HPEN pen = CreatePen(PS_SOLID, 1,
-        focused ? RGB(31, 132, 239) : RGB(55, 78, 98));
+        focused ? RGB(31, 132, 239) :
+        hovered ? RGB(75, 105, 130) : RGB(55, 78, 98));
     HGDIOBJ oldBrush = SelectObject(dc, brush);
     HGDIOBJ oldPen = SelectObject(dc, pen);
     RoundRect(dc, bounds.left, bounds.top, bounds.right, bounds.bottom, 6, 6);
@@ -581,7 +597,19 @@ LRESULT CALLBACK ModernComboProc(HWND control, UINT message,
     case WM_ENABLE:
         InvalidateRect(control, nullptr, TRUE);
         break;
+    case WM_MOUSEMOVE: {
+        SetPropW(control, kHoverProperty, reinterpret_cast<HANDLE>(1));
+        TRACKMOUSEEVENT tracking{ sizeof(tracking), TME_LEAVE, control, 0 };
+        TrackMouseEvent(&tracking);
+        InvalidateRect(control, nullptr, TRUE);
+        break;
+    }
+    case WM_MOUSELEAVE:
+        RemovePropW(control, kHoverProperty);
+        InvalidateRect(control, nullptr, TRUE);
+        break;
     case WM_NCDESTROY:
+        RemovePropW(control, kHoverProperty);
         RemoveWindowSubclass(control, ModernComboProc, 1);
         break;
     }
@@ -594,6 +622,7 @@ void PaintModernCheckbox(HWND control, HDC dc)
     GetClientRect(control, &bounds);
     const bool enabled = IsWindowEnabled(control) != FALSE;
     const bool checked = SendMessageW(control, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    const bool hovered = GetPropW(control, kHoverProperty) != nullptr;
     HBRUSH background = CreateSolidBrush(RGB(13, 27, 40));
     FillRect(dc, &bounds, background);
     DeleteObject(background);
@@ -602,7 +631,8 @@ void PaintModernCheckbox(HWND control, HDC dc)
     HBRUSH boxBrush = CreateSolidBrush(checked
         ? (enabled ? RGB(10, 105, 215) : RGB(40, 67, 93)) : RGB(15, 29, 42));
     HPEN boxPen = CreatePen(PS_SOLID, 1,
-        enabled ? (checked ? RGB(45, 143, 245) : RGB(68, 91, 111)) : RGB(48, 61, 74));
+        enabled ? (checked ? RGB(45, 143, 245) :
+            hovered ? RGB(92, 125, 151) : RGB(68, 91, 111)) : RGB(48, 61, 74));
     HGDIOBJ oldBrush = SelectObject(dc, boxBrush);
     HGDIOBJ oldPen = SelectObject(dc, boxPen);
     RoundRect(dc, box.left, box.top, box.right, box.bottom, 4, 4);
@@ -657,9 +687,41 @@ LRESULT CALLBACK ModernCheckboxProc(HWND control, UINT message,
     case WM_ENABLE:
         InvalidateRect(control, nullptr, TRUE);
         break;
+    case WM_MOUSEMOVE: {
+        SetPropW(control, kHoverProperty, reinterpret_cast<HANDLE>(1));
+        TRACKMOUSEEVENT tracking{ sizeof(tracking), TME_LEAVE, control, 0 };
+        TrackMouseEvent(&tracking);
+        InvalidateRect(control, nullptr, TRUE);
+        break;
+    }
+    case WM_MOUSELEAVE:
+        RemovePropW(control, kHoverProperty);
+        InvalidateRect(control, nullptr, TRUE);
+        break;
     case WM_NCDESTROY:
+        RemovePropW(control, kHoverProperty);
         RemoveWindowSubclass(control, ModernCheckboxProc, 1);
         break;
+    }
+    return DefSubclassProc(control, message, wParam, lParam);
+}
+
+LRESULT CALLBACK ButtonHoverProc(HWND control, UINT message,
+    WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR)
+{
+    if (message == WM_MOUSEMOVE) {
+        if (!GetPropW(control, kHoverProperty)) {
+            SetPropW(control, kHoverProperty, reinterpret_cast<HANDLE>(1));
+            InvalidateRect(control, nullptr, TRUE);
+        }
+        TRACKMOUSEEVENT tracking{ sizeof(tracking), TME_LEAVE, control, 0 };
+        TrackMouseEvent(&tracking);
+    } else if (message == WM_MOUSELEAVE) {
+        RemovePropW(control, kHoverProperty);
+        InvalidateRect(control, nullptr, TRUE);
+    } else if (message == WM_NCDESTROY) {
+        RemovePropW(control, kHoverProperty);
+        RemoveWindowSubclass(control, ButtonHoverProc, 1);
     }
     return DefSubclassProc(control, message, wParam, lParam);
 }
@@ -673,6 +735,9 @@ HWND AddWindow(DialogData& data, DWORD exStyle, const wchar_t* className,
         reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(data.window, GWLP_HINSTANCE)), nullptr);
     SetControlFont(control, data.font);
     if (control) SetWindowTheme(control, L"DarkMode_Explorer", nullptr);
+    if (control && lstrcmpW(className, L"BUTTON") == 0 &&
+        (style & BS_TYPEMASK) == BS_OWNERDRAW)
+        SetWindowSubclass(control, ButtonHoverProc, 1, 0);
     if (control && id >= kFirstDynamicId) data.dynamicWindows.push_back(control);
     return control;
 }
@@ -707,6 +772,34 @@ DWORD SelectedListId(HWND list)
     const LRESULT selected = SendMessageW(list, LB_GETCURSEL, 0, 0);
     return selected == LB_ERR ? 0 : static_cast<DWORD>(
         SendMessageW(list, LB_GETITEMDATA, selected, 0));
+}
+
+LRESULT CALLBACK NavigationHoverProc(HWND list, UINT message,
+    WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR reference)
+{
+    auto* data = reinterpret_cast<DialogData*>(reference);
+    if (!data) return DefSubclassProc(list, message, wParam, lParam);
+    int& hovered = list == data->categories
+        ? data->hoveredCategory : data->hoveredPage;
+    if (message == WM_MOUSEMOVE) {
+        const DWORD hit = static_cast<DWORD>(SendMessageW(list, LB_ITEMFROMPOINT,
+            0, lParam));
+        const int next = HIWORD(hit) ? -1 : static_cast<int>(LOWORD(hit));
+        if (next != hovered) {
+            hovered = next;
+            InvalidateRect(list, nullptr, FALSE);
+        }
+        TRACKMOUSEEVENT tracking{ sizeof(tracking), TME_LEAVE, list, 0 };
+        TrackMouseEvent(&tracking);
+    } else if (message == WM_MOUSELEAVE) {
+        if (hovered != -1) {
+            hovered = -1;
+            InvalidateRect(list, nullptr, FALSE);
+        }
+    } else if (message == WM_NCDESTROY) {
+        RemoveWindowSubclass(list, NavigationHoverProc, 1);
+    }
+    return DefSubclassProc(list, message, wParam, lParam);
 }
 
 void ClearDynamic(DialogData& data)
@@ -1100,6 +1193,10 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT |
             LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
             254, 48, 202, 430, kPageListId);
+        SetWindowSubclass(data->categories, NavigationHoverProc, 1,
+            reinterpret_cast<DWORD_PTR>(data));
+        SetWindowSubclass(data->pages, NavigationHoverProc, 1,
+            reinterpret_cast<DWORD_PTR>(data));
         SendMessageW(data->categories, LB_SETITEMHEIGHT, 0, 44);
         SendMessageW(data->pages, LB_SETITEMHEIGHT, 0, 44);
         AddWindow(*data, 0, L"BUTTON", L"OK", WS_TABSTOP | BS_OWNERDRAW,
