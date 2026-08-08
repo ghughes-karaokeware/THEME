@@ -14,3 +14,4 @@
 - Implemented the isolated modeless Structured Dialog proof of concept, versioned packed ABI, hierarchy validation, two/three-level navigation, initial native controls, declarative dependency handling, transactional OK/Cancel behavior, one-shot completion queue, Clarion type include, exact Test_Setup embed guide, and 32-bit ABI/round-trip harness.
 - Corrected `CHStructuredDialogTypes.inc` to Clarion-compatible ASCII/Windows CRLF line endings and added Git attributes that preserve CRLF for Clarion source formats.
 - Corrected the Test_Setup external `MODULE('CHTheme.dll')` examples to use Clarion MAP prototype syntax without the invalid `PROCEDURE` keyword.
+- Simplified the Clarion test ABI declarations to equates plus procedure-local GROUPs passed through `ADDRESS()` and replaced illegal button-embed `EXIT` statements with `CYCLE`.

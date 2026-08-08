@@ -21,8 +21,8 @@ Place inside the application's global `MAP`, alongside the generated member modu
 CHUI_GetAbiVersion(),ULONG,PASCAL,RAW,NAME('CHUI_GetAbiVersion')
 CHUI_GetHeaderSize(),ULONG,PASCAL,RAW,NAME('CHUI_GetHeaderSize')
 CHUI_GetEntrySize(),ULONG,PASCAL,RAW,NAME('CHUI_GetEntrySize')
-CHUI_ValidateDialog(*CHUI_DIALOG_HEADER Header,*CHUI_ENTRY_RECORD Entries),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialog')
-CHUI_OpenDialog(LONG OwnerHwnd,*CHUI_DIALOG_HEADER Header,*CHUI_ENTRY_RECORD Entries,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
+CHUI_ValidateDialog(LONG HeaderAddress,LONG EntriesAddress),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialog')
+CHUI_OpenDialog(LONG OwnerHwnd,LONG HeaderAddress,LONG EntriesAddress,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
 CHUI_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DialogResult),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
      END
 ```
@@ -45,8 +45,35 @@ The second button is the one-shot completion bridge. It remains hidden.
 Place in `Main procedure / Local Data` before the WINDOW declaration:
 
 ```clarion
-DialogHeader             CHUI_DIALOG_HEADER
-DialogEntries            CHUI_ENTRY_RECORD,DIM(11)
+DialogHeader             GROUP
+Version                    ULONG
+HeaderSize                 ULONG
+EntrySize                  ULONG
+EntryCount                 ULONG
+Flags                      ULONG
+InstanceID                 ULONG
+Title                      CSTRING(128)
+Reserved                   STRING(104)
+                         END
+DialogEntries            GROUP,DIM(11)
+Type                       ULONG
+ID                         ULONG
+ParentID                   ULONG
+Flags                      ULONG
+DependencyID               ULONG
+DependencyOperator         ULONG
+Minimum                    LONG
+Maximum                    LONG
+Step                       LONG
+ReservedNumber             ULONG
+Caption                    CSTRING(128)
+Value                      CSTRING(128)
+DefaultValue               CSTRING(128)
+DependencyValue            CSTRING(128)
+Options                    CSTRING(512)
+HelpText                   CSTRING(256)
+Reserved                   STRING(88)
+                         END
 DialogInstance           ULONG
 CompletedInstance        ULONG
 DialogResult             LONG
@@ -77,33 +104,34 @@ Place in `?OpenStructuredSetup / Accepted`:
 ```clarion
 IF DialogInstance
   MESSAGE('The Structured Setup dialog is already open.')
-  EXIT
+  CYCLE
 END
 
 DO PrepareStructuredDialog
 
 IF CHUI_GetAbiVersion() <> CHUI_ABI_VERSION
   MESSAGE('CHTheme.dll Structured Dialog ABI version mismatch.')
-  EXIT
+  CYCLE
 END
 IF CHUI_GetHeaderSize() <> SIZE(DialogHeader)
   MESSAGE('Header size mismatch. Clarion=' & SIZE(DialogHeader) & |
           ' DLL=' & CHUI_GetHeaderSize())
-  EXIT
+  CYCLE
 END
 IF CHUI_GetEntrySize() <> SIZE(DialogEntries[1])
   MESSAGE('Entry size mismatch. Clarion=' & SIZE(DialogEntries[1]) & |
           ' DLL=' & CHUI_GetEntrySize())
-  EXIT
+  CYCLE
 END
 
-DialogStatus = CHUI_ValidateDialog(DialogHeader,DialogEntries[1])
+DialogStatus = CHUI_ValidateDialog(ADDRESS(DialogHeader),ADDRESS(DialogEntries[1]))
 IF DialogStatus <> CHUI_STATUS_OK
   MESSAGE('Structured Dialog validation failed: ' & DialogStatus)
-  EXIT
+  CYCLE
 END
 
-DialogStatus = CHUI_OpenDialog(0{PROP:Handle},DialogHeader,DialogEntries[1], |
+DialogStatus = CHUI_OpenDialog(0{PROP:Handle},ADDRESS(DialogHeader), |
+                               ADDRESS(DialogEntries[1]), |
                                ?CHUIComplete{PROP:Handle})
 IF DialogStatus > 0
   DialogInstance = DialogStatus

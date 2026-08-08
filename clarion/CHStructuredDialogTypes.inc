@@ -37,34 +37,3 @@ CHUI_ERROR_PARENT         EQUATE(-9)
 CHUI_ERROR_OPTIONS        EQUATE(-10)
 CHUI_ERROR_ALREADY_OPEN   EQUATE(-11)
 CHUI_ERROR_WINDOW         EQUATE(-12)
-
-CHUI_DIALOG_HEADER GROUP,TYPE
-Version                 ULONG
-HeaderSize              ULONG
-EntrySize               ULONG
-EntryCount              ULONG
-Flags                   ULONG
-InstanceID              ULONG
-Title                   CSTRING(128)
-Reserved                STRING(104)
-                     END
-
-CHUI_ENTRY_RECORD GROUP,TYPE
-Type                    ULONG
-ID                      ULONG
-ParentID                ULONG
-Flags                   ULONG
-DependencyID            ULONG
-DependencyOperator      ULONG
-Minimum                 LONG
-Maximum                 LONG
-Step                    LONG
-ReservedNumber          ULONG
-Caption                 CSTRING(128)
-Value                   CSTRING(128)
-DefaultValue            CSTRING(128)
-DependencyValue         CSTRING(128)
-Options                 CSTRING(512)
-HelpText                CSTRING(256)
-Reserved                STRING(88)
-                     END
