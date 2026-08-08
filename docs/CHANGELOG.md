@@ -2,6 +2,8 @@
 
 ## 2026-08-08
 
+- Integrated color into the single `CHUI_FONT` popup and composite value, now returned as `Face name|CDE style mask|COLORREF`; a separate `CHUI_COLOR` entry is no longer required for each heading.
+- Corrected font-preview initialization to use an internal 12-point preview while keeping font size unavailable to the user, and hid the unsupported Strikeout control.
 - Added `CHUI_FONT`, a single familiar Windows font popup that selects the installed font face plus Bold, Italic, and Underline attributes while hiding and disabling font-size selection.
 - Defined the font value as `Face name|CDE style mask`; the popup updates only CDE font bits `0001H`, `0002H`, and `0004H`, preserving alignment, shadow, and future non-font style bits.
 - Extended the Win32 ABI harness to validate and round-trip a font selection through Apply and Cancel; Win32 Release builds with zero warnings and errors.

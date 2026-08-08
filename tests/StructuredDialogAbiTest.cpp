@@ -221,8 +221,8 @@ int main(int argc, char** argv)
     entries[2].type = CHUI_FONT;
     entries[2].options[0] = '\0';
     strcpy_s(entries[2].caption, "CDE heading font");
-    strcpy_s(entries[2].value, "Segoe UI|1");
-    strcpy_s(entries[2].defaultValue, "Arial|0");
+    strcpy_s(entries[2].value, "Segoe UI|1|16777215");
+    strcpy_s(entries[2].defaultValue, "Arial|0|16777215");
     if (validate(&header, entries) != CHUI_STATUS_OK) return 37;
     const LONG fontInstance = openDialog(owner, &header, entries, notification);
     if (fontInstance <= 0) return 38;
@@ -230,16 +230,18 @@ int main(int argc, char** argv)
     HWND fontButton = dialog ? GetDlgItem(dialog, 1002) : nullptr;
     if (!fontButton) return 39;
     if (!setEntryValue(static_cast<DWORD>(fontInstance), 111,
-        "Arial|7")) return 40;
+        "Arial|7|255")) return 40;
     applyButton = GetDlgItem(dialog, 104);
     SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(104, BN_CLICKED),
         reinterpret_cast<LPARAM>(applyButton));
     if (!consume(notification, &completedInstance, &result) ||
-        result != CHUI_RESULT_APPLY || std::strcmp(entries[2].value, "Arial|7"))
+        result != CHUI_RESULT_APPLY ||
+        std::strcmp(entries[2].value, "Arial|7|255"))
         return 41;
     SendMessageW(dialog, WM_CLOSE, 0, 0);
     if (!consume(notification, &completedInstance, &result) ||
-        result != CHUI_RESULT_CANCEL || std::strcmp(entries[2].value, "Arial|7"))
+        result != CHUI_RESULT_CANCEL ||
+        std::strcmp(entries[2].value, "Arial|7|255"))
         return 42;
     DestroyWindow(owner);
 

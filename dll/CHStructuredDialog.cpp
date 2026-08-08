@@ -560,23 +560,32 @@ constexpr unsigned long kFontItalic = 0x0002;
 constexpr unsigned long kFontUnderline = 0x0004;
 
 bool ParseFontValue(const std::string& value, std::string& face,
-    unsigned long& style)
+    unsigned long& style, unsigned long& color)
 {
-    const size_t separator = value.rfind('|');
-    if (separator == std::string::npos || !separator ||
-        separator + 1 >= value.size()) return false;
-    face = value.substr(0, separator);
+    const size_t first = value.find('|');
+    const size_t second = first == std::string::npos
+        ? std::string::npos : value.find('|', first + 1);
+    if (first == std::string::npos || second == std::string::npos ||
+        !first || second == first + 1 || second + 1 >= value.size()) return false;
+    face = value.substr(0, first);
     style = 0;
-    const auto parsed = std::from_chars(value.data() + separator + 1,
-        value.data() + value.size(), style);
-    return parsed.ec == std::errc{} && parsed.ptr == value.data() + value.size();
+    color = 0;
+    const auto parsedStyle = std::from_chars(value.data() + first + 1,
+        value.data() + second, style);
+    const auto parsedColor = std::from_chars(value.data() + second + 1,
+        value.data() + value.size(), color);
+    return parsedStyle.ec == std::errc{} &&
+        parsedStyle.ptr == value.data() + second &&
+        parsedColor.ec == std::errc{} &&
+        parsedColor.ptr == value.data() + value.size() && color <= 0x00FFFFFFUL;
 }
 
 std::wstring FontButtonCaption(const std::string& value)
 {
     std::string face;
     unsigned long style = 0;
-    if (!ParseFontValue(value, face, style)) return L"Choose font...";
+    unsigned long color = 0;
+    if (!ParseFontValue(value, face, style, color)) return L"FONT...";
     std::wstring caption = Utf8ToWide(face.c_str());
     if (style & kFontBold) caption += L" - Bold";
     if (style & kFontItalic) caption += L" - Italic";
@@ -589,6 +598,7 @@ UINT_PTR CALLBACK FontDialogHook(HWND dialog, UINT message, WPARAM, LPARAM)
     if (message == WM_INITDIALOG) {
         ShowWindow(GetDlgItem(dialog, stc3), SW_HIDE);
         ShowWindow(GetDlgItem(dialog, cmb3), SW_HIDE);
+        ShowWindow(GetDlgItem(dialog, chx1), SW_HIDE);
     }
     return 0;
 }
@@ -597,7 +607,8 @@ bool ChooseEntryFont(DialogData& data, RuntimeEntry& entry)
 {
     std::string face;
     unsigned long style = 0;
-    if (!ParseFontValue(entry.workingValue, face, style)) {
+    unsigned long color = 0x00FFFFFFUL;
+    if (!ParseFontValue(entry.workingValue, face, style, color)) {
         face = entry.workingValue.empty() ? "Segoe UI" : entry.workingValue;
         style = 0;
     }
@@ -605,7 +616,8 @@ bool ChooseEntryFont(DialogData& data, RuntimeEntry& entry)
     LOGFONTW selected{};
     const std::wstring wideFace = Utf8ToWide(face.c_str());
     wcsncpy_s(selected.lfFaceName, wideFace.c_str(), _TRUNCATE);
-    selected.lfHeight = -60;
+    const UINT dpi = GetDpiForWindow(data.window);
+    selected.lfHeight = -MulDiv(12, dpi ? static_cast<int>(dpi) : 96, 72);
     selected.lfWeight = (style & kFontBold) ? FW_BOLD : FW_NORMAL;
     selected.lfItalic = (style & kFontItalic) ? TRUE : FALSE;
     selected.lfUnderline = (style & kFontUnderline) ? TRUE : FALSE;
@@ -613,9 +625,10 @@ bool ChooseEntryFont(DialogData& data, RuntimeEntry& entry)
     CHOOSEFONTW picker{ sizeof(picker) };
     picker.hwndOwner = data.window;
     picker.lpLogFont = &selected;
-    picker.iPointSize = 600;
+    picker.iPointSize = 120;
+    picker.rgbColors = static_cast<COLORREF>(color);
     picker.Flags = CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT |
-        CF_ENABLEHOOK | CF_NOSIZESEL;
+        CF_ENABLEHOOK | CF_NOSIZESEL | CF_EFFECTS;
     picker.lpfnHook = FontDialogHook;
     if (!ChooseFontW(&picker)) return false;
 
@@ -626,7 +639,8 @@ bool ChooseEntryFont(DialogData& data, RuntimeEntry& entry)
     if (selected.lfItalic) style |= kFontItalic;
     if (selected.lfUnderline) style |= kFontUnderline;
     entry.workingValue = WideToUtf8(selected.lfFaceName) + "|" +
-        std::to_string(style);
+        std::to_string(style) + "|" +
+        std::to_string(static_cast<unsigned long>(picker.rgbColors));
     SetWindowTextW(entry.control,
         FontButtonCaption(entry.workingValue).c_str());
     InvalidateRect(entry.control, nullptr, TRUE);
@@ -1373,7 +1387,8 @@ bool ValidateWorkingValues(DialogData& data)
         if (entry.definition.type == CHUI_FONT) {
             std::string face;
             unsigned long style = 0;
-            if (!ParseFontValue(entry.workingValue, face, style) || face.empty()) {
+            unsigned long color = 0;
+            if (!ParseFontValue(entry.workingValue, face, style, color) || face.empty()) {
                 MessageBoxW(data.window, L"A font selection is invalid.",
                     data.title.c_str(), MB_OK | MB_ICONWARNING);
                 return false;
