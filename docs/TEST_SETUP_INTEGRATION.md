@@ -33,7 +33,7 @@ Create the Clarion-compatible `CHTheme.LIB` from the candidate DLL before linkin
 F:\Invicion Software Code\Clarion 10 Projects\Test_App\Test_Setup\StructuredDialogCandidate\CHTheme.dll
 ```
 
-Do not use the DLL that Clarion copies from the accessory directory during generation: until the candidate is promoted, that copy is the older production DLL and contains no `CHUI_*` exports. Clarion generation/build may overwrite the DLL beside `Test_Setup.exe`; after compiling and before running, restore the protected candidate DLL beside the EXE. The correct candidate SHA-256 is `C11391CAA218FE5A82C18049AA42A7829B365C446F8BCE0B39ED67C5796C7CF4`.
+Do not use the DLL that Clarion copies from the accessory directory during generation: until the candidate is promoted, that copy is the older production DLL and contains no `CHUI_*` exports. Clarion generation/build may overwrite the DLL beside `Test_Setup.exe`; after compiling and before running, restore the protected candidate DLL beside the EXE. The current candidate SHA-256 is recorded in `docs/HASHES.md` and must match the protected copy before testing.
 
 ## 3. Main window controls
 
@@ -71,7 +71,7 @@ DependencyOperator         ULONG
 Minimum                    LONG
 Maximum                    LONG
 Step                       LONG
-ReservedNumber             ULONG
+IconID                     ULONG
 Caption                    CSTRING(128)
 Value                      CSTRING(128)
 DefaultValue               CSTRING(128)
@@ -189,11 +189,13 @@ PrepareStructuredDialog ROUTINE
 
   DialogEntries[1].Type = CHUI_PANEL
   DialogEntries[1].ID = 100
+  DialogEntries[1].IconID = CHUI_ICON_AUDIO
   DialogEntries[1].Caption = 'Audio'
 
   DialogEntries[2].Type = CHUI_PANEL
   DialogEntries[2].ID = 110
   DialogEntries[2].ParentID = 100
+  DialogEntries[2].IconID = CHUI_ICON_GENERAL
   DialogEntries[2].Caption = 'General'
 
   DialogEntries[3].Type = CHUI_CHECKBOX
@@ -238,6 +240,7 @@ PrepareStructuredDialog ROUTINE
   DialogEntries[7].Type = CHUI_PANEL
   DialogEntries[7].ID = 120
   DialogEntries[7].ParentID = 100
+  DialogEntries[7].IconID = CHUI_ICON_DEVICE
   DialogEntries[7].Caption = 'Output Devices'
 
   DialogEntries[8].Type = CHUI_CHECKBOX
@@ -250,6 +253,7 @@ PrepareStructuredDialog ROUTINE
   DialogEntries[9].Type = CHUI_PANEL
   DialogEntries[9].ID = 130
   DialogEntries[9].ParentID = 120
+  DialogEntries[9].IconID = CHUI_ICON_ADVANCED
   DialogEntries[9].Caption = 'Device Advanced Settings'
 
   DialogEntries[10].Type = CHUI_DROPDOWN

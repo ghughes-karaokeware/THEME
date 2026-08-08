@@ -44,6 +44,7 @@ int main(int argc, char** argv)
 
     entries[0].type = CHUI_PANEL;
     entries[0].id = 100;
+    entries[0].iconId = CHUI_ICON_AUDIO;
     strcpy_s(entries[0].caption, "Audio");
     entries[1].type = CHUI_PANEL;
     entries[1].id = 110;

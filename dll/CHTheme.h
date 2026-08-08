@@ -39,6 +39,18 @@ enum CHUIDependencyOperator
     CHUI_DEPEND_NONE = 0, CHUI_DEPEND_EQUAL = 1, CHUI_DEPEND_NOT_EQUAL = 2
 };
 
+enum CHUIIcon
+{
+    CHUI_ICON_NONE = 0, CHUI_ICON_GENERAL = 1, CHUI_ICON_KARAOKE = 2,
+    CHUI_ICON_AUDIO = 3, CHUI_ICON_DISPLAY = 4, CHUI_ICON_SONG_QUEUE = 5,
+    CHUI_ICON_AUTOMATION = 6, CHUI_ICON_SONGBOOK = 7, CHUI_ICON_FILE = 8,
+    CHUI_ICON_APPEARANCE = 9, CHUI_ICON_KEYBOARD = 10,
+    CHUI_ICON_ADVANCED = 11, CHUI_ICON_DEVICE = 12,
+    CHUI_ICON_MICROPHONE = 13, CHUI_ICON_PLAY = 14, CHUI_ICON_STOP = 15,
+    CHUI_ICON_SETTINGS = 16, CHUI_ICON_WARNING = 17,
+    CHUI_ICON_INFORMATION = 18
+};
+
 enum CHUIStatus
 {
     CHUI_STATUS_OK = 1, CHUI_ERROR_ARGUMENT = -1, CHUI_ERROR_VERSION = -2,
@@ -61,7 +73,7 @@ struct CHUI_ENTRY_RECORD
 {
     DWORD type, id, parentId, flags, dependencyId, dependencyOperator;
     LONG minimum, maximum, step;
-    DWORD reservedNumber;
+    DWORD iconId;
     char caption[128];
     char value[128];
     char defaultValue[128];

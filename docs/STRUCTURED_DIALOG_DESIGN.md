@@ -24,7 +24,9 @@ Initial value types: `ENTRY`, `NUMBER`, `DROPDOWN`, `CHECKBOX`, `RADIO`, and `SL
 
 Reserved type values permit later `PASSWORD`, `FILE`, `FOLDER`, `COLOR`, and `HOTKEY` additions without changing the version-1 record.
 
-Each entry contains version/size information, type, ID, parent ID, flags, dependency fields, numeric limits, caption, current value, default value, dropdown options, help text, and reserved bytes. Dropdown options use bounded `stored-value=Display caption` pairs; stored values therefore remain stable when captions change.
+Each entry contains version/size information, type, ID, parent ID, flags, dependency fields, numeric limits, a built-in icon ID, caption, current value, default value, dropdown options, help text, and reserved bytes. Dropdown options use bounded `stored-value=Display caption` pairs; stored values therefore remain stable when captions change.
+
+The original reserved 32-bit number at byte offset 36 is now named `IconID`. Values `CHUI_ICON_NONE` through `CHUI_ICON_INFORMATION` select DLL-owned, theme-colored scalable glyphs. This consumes an existing reserved slot, so ABI version `00010000H`, the 1,408-byte record size, and every subsequent field offset remain unchanged. Unknown icon IDs render as no icon for forward compatibility.
 
 ## Minimal API
 
@@ -59,7 +61,6 @@ Application-variable metadata remains Clarion-only. A later helper may map Entry
 - Current values, defaults, stable dropdown values, one dependency, OK commit, Cancel preservation, and one completion event.
 - Optional diagnostics for ABI validation, parsed entries, bad parents/options, window creation, result, committed values, and notification delivery.
 
-## Deferred until the round trip is proven
+## Deferred beyond the current proof of concept
 
-Search, icons, file/folder/color pickers, tables, arbitrary action callbacks, reset-all, actual CompuHost globals, and migration of the production Setup dialog.
-
+Search, application-supplied icon registration, file/folder/color pickers, tables, arbitrary action callbacks, reset-all, actual CompuHost globals, and migration of the production Setup dialog.

@@ -182,6 +182,161 @@ RuntimeEntry* FindEntry(DialogData& data, DWORD id)
     return found == data.byId.end() ? nullptr : &data.entries[found->second];
 }
 
+void DrawBuiltInIcon(HDC dc, const RECT& bounds, DWORD iconId, COLORREF color)
+{
+    if (!iconId || iconId > CHUI_ICON_INFORMATION) return;
+    const int left = bounds.left + 2;
+    const int top = bounds.top + 2;
+    const int right = bounds.right - 2;
+    const int bottom = bounds.bottom - 2;
+    const int middleX = (left + right) / 2;
+    const int middleY = (top + bottom) / 2;
+    HPEN pen = CreatePen(PS_SOLID, 2, color);
+    HBRUSH brush = CreateSolidBrush(color);
+    HGDIOBJ oldPen = SelectObject(dc, pen);
+    HGDIOBJ oldBrush = SelectObject(dc, GetStockObject(NULL_BRUSH));
+
+    switch (iconId) {
+    case CHUI_ICON_AUDIO: {
+        POINT speaker[] = { {left, middleY - 3}, {left + 4, middleY - 3},
+            {middleX, top + 2}, {middleX, bottom - 2},
+            {left + 4, middleY + 3}, {left, middleY + 3} };
+        SelectObject(dc, brush);
+        Polygon(dc, speaker, static_cast<int>(std::size(speaker)));
+        SelectObject(dc, GetStockObject(NULL_BRUSH));
+        Arc(dc, middleX - 2, top + 3, right - 1, bottom - 3,
+            middleX + 1, top + 4, middleX + 1, bottom - 4);
+        break;
+    }
+    case CHUI_ICON_KARAOKE:
+    case CHUI_ICON_MICROPHONE:
+        RoundRect(dc, middleX - 3, top, middleX + 4, middleY + 4, 5, 5);
+        Arc(dc, middleX - 7, top + 3, middleX + 8, bottom - 3,
+            left, middleY, right, middleY);
+        MoveToEx(dc, middleX, middleY + 4, nullptr);
+        LineTo(dc, middleX, bottom);
+        MoveToEx(dc, middleX - 4, bottom, nullptr);
+        LineTo(dc, middleX + 4, bottom);
+        break;
+    case CHUI_ICON_DISPLAY:
+    case CHUI_ICON_DEVICE:
+        Rectangle(dc, left, top + 1, right, bottom - 4);
+        MoveToEx(dc, middleX, bottom - 4, nullptr);
+        LineTo(dc, middleX, bottom);
+        MoveToEx(dc, middleX - 5, bottom, nullptr);
+        LineTo(dc, middleX + 5, bottom);
+        break;
+    case CHUI_ICON_SONG_QUEUE:
+    case CHUI_ICON_SONGBOOK:
+    case CHUI_ICON_FILE:
+        Rectangle(dc, left + 2, top, right - 1, bottom);
+        MoveToEx(dc, left + 5, top + 5, nullptr);
+        LineTo(dc, right - 4, top + 5);
+        MoveToEx(dc, left + 5, middleY, nullptr);
+        LineTo(dc, right - 4, middleY);
+        MoveToEx(dc, left + 5, bottom - 5, nullptr);
+        LineTo(dc, right - 4, bottom - 5);
+        break;
+    case CHUI_ICON_AUTOMATION: {
+        POINT bolt[] = { {middleX + 1, top}, {left + 3, middleY + 2},
+            {middleX - 1, middleY + 2}, {middleX - 2, bottom},
+            {right - 2, middleY - 2}, {middleX + 2, middleY - 2} };
+        SelectObject(dc, brush);
+        Polygon(dc, bolt, static_cast<int>(std::size(bolt)));
+        break;
+    }
+    case CHUI_ICON_KEYBOARD:
+        Rectangle(dc, left, top + 3, right, bottom - 2);
+        for (int x = left + 4; x < right - 2; x += 4) {
+            MoveToEx(dc, x, top + 6, nullptr);
+            LineTo(dc, x, top + 9);
+        }
+        MoveToEx(dc, left + 4, bottom - 5, nullptr);
+        LineTo(dc, right - 4, bottom - 5);
+        break;
+    case CHUI_ICON_PLAY: {
+        POINT play[] = { {left + 3, top}, {right - 1, middleY},
+            {left + 3, bottom} };
+        SelectObject(dc, brush);
+        Polygon(dc, play, static_cast<int>(std::size(play)));
+        break;
+    }
+    case CHUI_ICON_STOP:
+        SelectObject(dc, brush);
+        Rectangle(dc, left + 2, top + 2, right - 2, bottom - 2);
+        break;
+    case CHUI_ICON_WARNING: {
+        POINT warning[] = { {middleX, top}, {right, bottom}, {left, bottom} };
+        Polygon(dc, warning, static_cast<int>(std::size(warning)));
+        MoveToEx(dc, middleX, top + 5, nullptr);
+        LineTo(dc, middleX, bottom - 5);
+        SetPixel(dc, middleX, bottom - 2, color);
+        break;
+    }
+    case CHUI_ICON_INFORMATION:
+        Ellipse(dc, left, top, right, bottom);
+        MoveToEx(dc, middleX, middleY - 1, nullptr);
+        LineTo(dc, middleX, bottom - 4);
+        SetPixel(dc, middleX, top + 4, color);
+        break;
+    case CHUI_ICON_APPEARANCE:
+        Ellipse(dc, left, top, right, bottom);
+        SelectObject(dc, brush);
+        Ellipse(dc, left + 4, top + 4, left + 7, top + 7);
+        Ellipse(dc, right - 7, top + 4, right - 4, top + 7);
+        Ellipse(dc, left + 4, bottom - 7, left + 7, bottom - 4);
+        break;
+    default:
+        Ellipse(dc, left + 2, top + 2, right - 2, bottom - 2);
+        MoveToEx(dc, middleX, top, nullptr);
+        LineTo(dc, middleX, top + 4);
+        MoveToEx(dc, middleX, bottom - 4, nullptr);
+        LineTo(dc, middleX, bottom);
+        MoveToEx(dc, left, middleY, nullptr);
+        LineTo(dc, left + 4, middleY);
+        MoveToEx(dc, right - 4, middleY, nullptr);
+        LineTo(dc, right, middleY);
+        break;
+    }
+
+    SelectObject(dc, oldBrush);
+    SelectObject(dc, oldPen);
+    DeleteObject(brush);
+    DeleteObject(pen);
+}
+
+void DrawNavigationItem(DialogData& data, const DRAWITEMSTRUCT& item)
+{
+    if (item.itemID == static_cast<UINT>(-1)) return;
+    const bool selected = (item.itemState & ODS_SELECTED) != 0;
+    const COLORREF background = selected ? RGB(0, 116, 217) : RGB(8, 16, 24);
+    const COLORREF foreground = selected ? RGB(255, 255, 255) : RGB(218, 229, 239);
+    HBRUSH brush = CreateSolidBrush(background);
+    FillRect(item.hDC, &item.rcItem, brush);
+    DeleteObject(brush);
+
+    RuntimeEntry* entry = FindEntry(data, static_cast<DWORD>(item.itemData));
+    RECT iconRect = item.rcItem;
+    iconRect.left += 8;
+    iconRect.right = iconRect.left + 18;
+    iconRect.top += 5;
+    iconRect.bottom = iconRect.top + 18;
+    const DWORD iconId = entry ? entry->definition.iconId : CHUI_ICON_NONE;
+    DrawBuiltInIcon(item.hDC, iconRect, iconId, foreground);
+
+    wchar_t caption[256]{};
+    SendMessageW(item.hwndItem, LB_GETTEXT, item.itemID,
+        reinterpret_cast<LPARAM>(caption));
+    RECT textRect = item.rcItem;
+    textRect.left += iconId ? 34 : 9;
+    textRect.right -= 6;
+    SetBkMode(item.hDC, TRANSPARENT);
+    SetTextColor(item.hDC, foreground);
+    DrawTextW(item.hDC, caption, -1, &textRect,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    if (item.itemState & ODS_FOCUS) DrawFocusRect(item.hDC, &item.rcItem);
+}
+
 void SetControlFont(HWND control, HFONT font)
 {
     if (IsWindow(control)) SendMessageW(control, WM_SETFONT,
@@ -571,11 +726,15 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         const BOOL dark = TRUE;
         DwmSetWindowAttribute(window, 20, &dark, sizeof(dark));
         data->categories = AddWindow(*data, 0, L"LISTBOX", L"",
-            WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+            WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT |
+            LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
             18, 48, 220, 430, kCategoryListId);
         data->pages = AddWindow(*data, 0, L"LISTBOX", L"",
-            WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+            WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT |
+            LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
             254, 48, 202, 430, kPageListId);
+        SendMessageW(data->categories, LB_SETITEMHEIGHT, 0, 28);
+        SendMessageW(data->pages, LB_SETITEMHEIGHT, 0, 28);
         AddWindow(*data, 0, L"BUTTON", L"OK", WS_TABSTOP | BS_OWNERDRAW,
             674, 500, 76, 30, IDOK);
         AddWindow(*data, 0, L"BUTTON", L"Cancel", WS_TABSTOP | BS_OWNERDRAW,
@@ -652,6 +811,11 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         return 0;
     case WM_DRAWITEM: {
         const auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
+        if (item && item->CtlType == ODT_LISTBOX &&
+            (item->CtlID == kCategoryListId || item->CtlID == kPageListId)) {
+            DrawNavigationItem(*data, *item);
+            return TRUE;
+        }
         if (item && item->CtlType == ODT_BUTTON &&
             IsCommandButton(static_cast<int>(item->CtlID))) {
             DrawCommandButton(*item);
