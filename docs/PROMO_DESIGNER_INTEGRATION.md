@@ -29,15 +29,29 @@ CHPT_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG Designe
 In **Main > Data**, add these declarations before the window declaration:
 
 ```clarion
-PromoData               CHPT_PROMO_DATA
+PromoData               GROUP
+Version                    ULONG
+StructureSize              ULONG
+Flags                      ULONG
+BufferCapacity             ULONG
+MaximumLength              ULONG
+InstanceID                 ULONG
+Result                     LONG
+InputLength                ULONG
+OutputLength               ULONG
+Text                       CSTRING(4096)
+Reserved                   STRING(124)
+                        END
 PromoDesignerInstance   ULONG
 PromoCompletedInstance  ULONG
 PromoDesignerResult     LONG
 PromoDesignerStatus     LONG
-PromoAcceptedText       CSTRING(CHPT_TEXT_CAPACITY)
+PromoAcceptedText       CSTRING(4096)
 ```
 
 `PromoAcceptedText` is the test application's last accepted value. Cancel never changes it.
+
+The ABI group is intentionally declared inline. `Main` is generated into the separate `Test_Setup001.clw` MEMBER module, so a named `GROUP,TYPE` declared only by a global include is not visible there in Clarion 10. The inline layout is exactly 4256 bytes and matches the DLL.
 
 ## 4. Main window
 

@@ -16,17 +16,3 @@ CHPT_ERROR_ALREADY_OPEN EQUATE(-5)
 CHPT_ERROR_WINDOW      EQUATE(-6)
 CHPT_ERROR_ENCODING    EQUATE(-7)
 CHPT_ERROR_LENGTH      EQUATE(-8)
-
-CHPT_PROMO_DATA        GROUP,TYPE
-Version                  ULONG
-StructureSize            ULONG
-Flags                    ULONG
-BufferCapacity           ULONG
-MaximumLength            ULONG
-InstanceID               ULONG
-Result                   LONG
-InputLength              ULONG
-OutputLength             ULONG
-Text                     CSTRING(CHPT_TEXT_CAPACITY)
-Reserved                 STRING(124)
-                       END
