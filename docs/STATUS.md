@@ -23,6 +23,13 @@ Updated: 2026-08-06
 
 Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Preserve the TAB-content and TAB-highlight ownership rules above.
 
+## Structured Dialog development
+
+- The legacy `Setup.TXA` has been reviewed as an analysis-only source.
+- The Structured Dialog ABI, ownership rules, completion mechanism, dependency scope, and Test_Setup proof-of-concept boundary are recorded in `STRUCTURED_DIALOG_DESIGN.md`.
+- The legacy control and behavior inventory is recorded in `SETUP_TXA_ANALYSIS.md`.
+- No Structured Dialog DLL source or Test_Setup embeds have been changed yet.
+
 ## Known build caveat
 
 The CompuHost project reports existing redirection-copy warnings for legacy DLL dependencies. These warnings predate the latest sheet corrections and are not emitted by `CHModernSheet`.
