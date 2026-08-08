@@ -18,7 +18,7 @@ constexpr COLORREF kBg = RGB(5, 15, 25), kPanel = RGB(14, 31, 46), kBorder = RGB
 constexpr int ID_EDITOR = 100, ID_BOLD = 110, ID_ITALIC = 111, ID_UNDERLINE = 112, ID_UNDO = 113, ID_REDO = 114, ID_AUTOLOAD = 115, ID_LOAD = 116, ID_SAVE = 117, ID_CLEAR = 118, ID_OK = 120, ID_CANCEL = 121, ID_COLOR0 = 200;
 const COLORREF kColors[10] = { RGB(255,255,255), RGB(255,255,255), RGB(255,255,0), RGB(255,0,0), RGB(52,204,255), RGB(52,255,52), RGB(255,128,0), RGB(255,0,255), RGB(128,0,128), RGB(255,204,0) };
 struct Completion { DWORD instance; LONG result; };
-struct Data { HWND window{}, owner{}, notify{}, editor{}; CHPT_PROMO_DATA* caller{}; DWORD instance{}; std::string original; HFONT font{}, titleFont{}; bool completed{}, autoload{}; int hoverId{}; };
+struct Data { HWND window{}, owner{}, notify{}, editor{}; CHPT_PROMO_DATA* caller{}; DWORD instance{}; std::string original; std::wstring prmFolder; HFONT font{}, titleFont{}; bool completed{}, autoload{}; int hoverId{}; };
 std::mutex gLock; std::unordered_map<HWND, std::unique_ptr<Data>> gWindows; std::unordered_map<HWND, std::deque<Completion>> gCompletions; DWORD gNext = 1; HMODULE gRich{};
 void Debug(const Data& d,const wchar_t* event,DWORD value=0){if(!(d.caller->flags&CHPT_FLAG_DEBUG_LOG))return;wchar_t line[180]{};wsprintfW(line,L"CHPT instance=%lu %s value=%lu input=%lu output=%lu\n",d.instance,event,value,d.caller->inputLength,d.caller->outputLength);OutputDebugStringW(line);}
 
@@ -102,20 +102,35 @@ bool SaveDocument(Data& d)
     Debug(d,L"serialized",static_cast<DWORD>(encoded.size())); return true;
 }
 
+constexpr wchar_t kPromoRegistryKey[]=L"Software\\Karaokeware\\CHTheme\\PromoDesigner";
+constexpr wchar_t kPromoFolderValue[]=L"LastPrmFolder";
+
+void InitializePrmFolder(Data& d)
+{
+    wchar_t folder[1024]{};DWORD bytes=sizeof(folder);
+    if(RegGetValueW(HKEY_CURRENT_USER,kPromoRegistryKey,kPromoFolderValue,RRF_RT_REG_SZ,nullptr,folder,&bytes)==ERROR_SUCCESS&&folder[0]){d.prmFolder=folder;return;}
+    wchar_t executable[MAX_PATH]{};DWORD length=GetModuleFileNameW(nullptr,executable,MAX_PATH);if(!length||length>=MAX_PATH)return;wchar_t* slash=wcsrchr(executable,L'\\');if(slash)*slash=0;d.prmFolder=executable;
+}
+
+void RememberPrmFolder(Data& d,const wchar_t* path)
+{
+    std::wstring folder=path;const auto slash=folder.find_last_of(L"\\/");if(slash==std::wstring::npos)return;folder.resize(slash);if(folder.empty())return;HKEY key{};if(RegCreateKeyExW(HKEY_CURRENT_USER,kPromoRegistryKey,0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)==ERROR_SUCCESS){RegSetValueExW(key,kPromoFolderValue,0,REG_SZ,reinterpret_cast<const BYTE*>(folder.c_str()),static_cast<DWORD>((folder.size()+1)*sizeof(wchar_t)));RegCloseKey(key);}d.prmFolder=std::move(folder);
+}
+
 bool SelectPrmFile(Data& d, bool save, wchar_t* path, DWORD capacity)
 {
-    path[0]=0; OPENFILENAMEW ofn{}; ofn.lStructSize=sizeof(ofn); ofn.hwndOwner=d.window; ofn.lpstrFilter=L"CompuHost Promo Trailer (*.prm)\0*.prm\0Text files (*.txt)\0*.txt\0All files (*.*)\0*.*\0\0"; ofn.lpstrFile=path; ofn.nMaxFile=capacity; ofn.lpstrDefExt=L"prm"; ofn.lpstrTitle=save?L"Save Promo Trailer":L"Load Promo Trailer"; ofn.Flags=OFN_PATHMUSTEXIST|OFN_HIDEREADONLY|(save?OFN_OVERWRITEPROMPT:OFN_FILEMUSTEXIST);
+    path[0]=0; OPENFILENAMEW ofn{}; ofn.lStructSize=sizeof(ofn); ofn.hwndOwner=d.window; ofn.lpstrFilter=L"CompuHost Promo Trailer (*.prm)\0*.prm\0Text files (*.txt)\0*.txt\0All files (*.*)\0*.*\0\0"; ofn.lpstrFile=path; ofn.nMaxFile=capacity; ofn.lpstrInitialDir=d.prmFolder.empty()?nullptr:d.prmFolder.c_str();ofn.lpstrDefExt=L"prm"; ofn.lpstrTitle=save?L"Save Promo Trailer":L"Load Promo Trailer"; ofn.Flags=OFN_PATHMUSTEXIST|OFN_HIDEREADONLY|(save?OFN_OVERWRITEPROMPT:OFN_FILEMUSTEXIST);
     return save?GetSaveFileNameW(&ofn)!=FALSE:GetOpenFileNameW(&ofn)!=FALSE;
 }
 
 void SavePrm(Data& d)
 {
-    std::string encoded; if(!EncodeDocument(d,encoded))return; wchar_t path[MAX_PATH]{};if(!SelectPrmFile(d,true,path,MAX_PATH))return;HANDLE file=CreateFileW(path,GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){MessageBoxW(d.window,L"The Promo Trailer file could not be created.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}DWORD written{};BOOL ok=WriteFile(file,encoded.data(),static_cast<DWORD>(encoded.size()),&written,nullptr);CloseHandle(file);if(!ok||written!=encoded.size())MessageBoxW(d.window,L"The Promo Trailer file could not be written completely.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);
+    std::string encoded; if(!EncodeDocument(d,encoded))return; wchar_t path[MAX_PATH]{};if(!SelectPrmFile(d,true,path,MAX_PATH))return;HANDLE file=CreateFileW(path,GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){MessageBoxW(d.window,L"The Promo Trailer file could not be created.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}DWORD written{};BOOL ok=WriteFile(file,encoded.data(),static_cast<DWORD>(encoded.size()),&written,nullptr);CloseHandle(file);if(!ok||written!=encoded.size())MessageBoxW(d.window,L"The Promo Trailer file could not be written completely.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);else RememberPrmFolder(d,path);
 }
 
 void LoadPrm(Data& d)
 {
-    wchar_t path[MAX_PATH]{};if(!SelectPrmFile(d,false,path,MAX_PATH))return;HANDLE file=CreateFileW(path,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){MessageBoxW(d.window,L"The Promo Trailer file could not be opened.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}LARGE_INTEGER size{};if(!GetFileSizeEx(file,&size)||size.QuadPart<0||size.QuadPart>d.caller->maximumLength){CloseHandle(file);MessageBoxW(d.window,L"The Promo Trailer file exceeds the configured maximum length.",L"Promo Trailer Designer",MB_OK|MB_ICONWARNING);return;}std::string value(static_cast<size_t>(size.QuadPart),'\0');DWORD read{};BOOL ok=value.empty()||ReadFile(file,value.data(),static_cast<DWORD>(value.size()),&read,nullptr);CloseHandle(file);if(!ok||read!=value.size()){MessageBoxW(d.window,L"The Promo Trailer file could not be read completely.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}if(value.size()>=3&&static_cast<unsigned char>(value[0])==0xEF&&static_cast<unsigned char>(value[1])==0xBB&&static_cast<unsigned char>(value[2])==0xBF)value.erase(0,3);d.original=value;LoadDocument(d);SetFocus(d.editor);
+    wchar_t path[MAX_PATH]{};if(!SelectPrmFile(d,false,path,MAX_PATH))return;HANDLE file=CreateFileW(path,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){MessageBoxW(d.window,L"The Promo Trailer file could not be opened.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}LARGE_INTEGER size{};if(!GetFileSizeEx(file,&size)||size.QuadPart<0||size.QuadPart>d.caller->maximumLength){CloseHandle(file);MessageBoxW(d.window,L"The Promo Trailer file exceeds the configured maximum length.",L"Promo Trailer Designer",MB_OK|MB_ICONWARNING);return;}std::string value(static_cast<size_t>(size.QuadPart),'\0');DWORD read{};BOOL ok=value.empty()||ReadFile(file,value.data(),static_cast<DWORD>(value.size()),&read,nullptr);CloseHandle(file);if(!ok||read!=value.size()){MessageBoxW(d.window,L"The Promo Trailer file could not be read completely.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}if(value.size()>=3&&static_cast<unsigned char>(value[0])==0xEF&&static_cast<unsigned char>(value[1])==0xBB&&static_cast<unsigned char>(value[2])==0xBF)value.erase(0,3);d.original=value;LoadDocument(d);RememberPrmFolder(d,path);SetFocus(d.editor);
 }
 
 void Layout(Data& d)
@@ -140,7 +155,7 @@ LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
         button(ID_AUTOLOAD,L"Auto-load selected Promo Trailer on startup",20,110,410);
         button(ID_LOAD,L"Load",0,0,92);button(ID_SAVE,L"Save",0,0,92);
         button(ID_OK,L"OK",0,0,78); button(ID_CANCEL,L"Cancel",0,0,78);
-        d->autoload=(d->caller->flags&CHPT_FLAG_AUTOLOAD)!=0;
+        d->autoload=(d->caller->flags&CHPT_FLAG_AUTOLOAD)!=0;InitializePrmFolder(*d);
         d->editor=CreateWindowExW(0,MSFTEDIT_CLASS,L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN,18,100,700,350,w,reinterpret_cast<HMENU>(ID_EDITOR),nullptr,nullptr);
         SendMessageW(d->editor,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE); SendMessageW(d->editor,EM_SETBKGNDCOLOR,0,kPanel); SendMessageW(d->editor,EM_SETLIMITTEXT,d->caller->maximumLength,0); SetWindowSubclass(d->editor,EditorSubclass,1,reinterpret_cast<DWORD_PTR>(d)); CHARFORMAT2W base{};base.cbSize=sizeof(base);base.dwMask=CFM_COLOR;base.crTextColor=kText;SendMessageW(d->editor,EM_SETCHARFORMAT,SCF_ALL,reinterpret_cast<LPARAM>(&base));LoadDocument(*d); Layout(*d); return 0; }
     case WM_GETMINMAXINFO: { auto* info=reinterpret_cast<MINMAXINFO*>(lp); info->ptMinTrackSize.x=760; info->ptMinTrackSize.y=480; return 0; }

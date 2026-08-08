@@ -4,6 +4,7 @@
 - Added internal `.PRM` Load, Save, and Clear commands plus transactional Auto-load-on-startup flag round-tripping.
 - Redesigned the Promo Designer with a gradient title area, formatting band, bordered editor card, hover-responsive controls, an unclipped Auto-load option, and a balanced footer command bar.
 - Reordered Promo formatting commands to place color swatches beside B/I/U, moved Undo/Redo/Clear to a separated trailing group, removed the Default button, and enabled the immersive dark Windows title bar.
+- Made native `.PRM` dialogs start in the launching EXE folder, then remember the last successfully used folder per Windows user for later Load/Save operations.
 
 ## 2026-08-08
 
