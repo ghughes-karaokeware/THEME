@@ -19,22 +19,15 @@ int main(int argc, char** argv)
     using GetValue = DWORD(__stdcall*)();
     using Validate = LONG(__stdcall*)(const CHUI_DIALOG_HEADER*,
         const CHUI_ENTRY_RECORD*);
-    using ValidateEx = LONG(__stdcall*)(const CHUI_DIALOG_HEADER*,
-        const CHUI_ENTRY_RECORD*, const CHUI_PATH_RECORD*, DWORD);
     using Open = LONG(__stdcall*)(HWND, CHUI_DIALOG_HEADER*, CHUI_ENTRY_RECORD*, HWND);
-    using OpenEx = LONG(__stdcall*)(HWND, CHUI_DIALOG_HEADER*, CHUI_ENTRY_RECORD*,
-        CHUI_PATH_RECORD*, DWORD, HWND);
     using Consume = LONG(__stdcall*)(HWND, DWORD*, LONG*);
     using ConsumeChange = LONG(__stdcall*)(HWND, DWORD*, DWORD*);
     using SetEntryValue = LONG(__stdcall*)(DWORD, DWORD, const char*);
     const GetValue getVersion = Load<GetValue>(module, "CHUI_GetAbiVersion");
     const GetValue getHeaderSize = Load<GetValue>(module, "CHUI_GetHeaderSize");
     const GetValue getEntrySize = Load<GetValue>(module, "CHUI_GetEntrySize");
-    const GetValue getPathSize = Load<GetValue>(module, "CHUI_GetPathRecordSize");
     const Validate validate = Load<Validate>(module, "CHUI_ValidateDialog");
-    const ValidateEx validateEx = Load<ValidateEx>(module, "CHUI_ValidateDialogEx");
     const Open openDialog = Load<Open>(module, "CHUI_OpenDialog");
-    const OpenEx openDialogEx = Load<OpenEx>(module, "CHUI_OpenDialogEx");
     const Consume consume = Load<Consume>(module, "CHUI_ConsumeCompletion");
     const ConsumeChange consumeChange = Load<ConsumeChange>(module,
         "CHUI_ConsumeChange");
@@ -42,14 +35,13 @@ int main(int argc, char** argv)
         "CHUI_ConsumeAction");
     const SetEntryValue setEntryValue = Load<SetEntryValue>(module,
         "CHUI_SetEntryValue");
-    if (!getVersion || !getHeaderSize || !getEntrySize || !getPathSize ||
-        !validate || !validateEx || !openDialog || !openDialogEx || !consume ||
+    if (!getVersion || !getHeaderSize || !getEntrySize || !validate ||
+        !openDialog || !consume ||
         !consumeChange || !consumeAction || !setEntryValue) return 4;
 
-    if (getVersion() != 0x00010000 ||
+    if (getVersion() != 0x00020000 ||
         getHeaderSize() != sizeof(CHUI_DIALOG_HEADER) ||
-        getEntrySize() != sizeof(CHUI_ENTRY_RECORD) ||
-        getPathSize() != sizeof(CHUI_PATH_RECORD)) return 5;
+        getEntrySize() != sizeof(CHUI_ENTRY_RECORD)) return 5;
 
     CHUI_DIALOG_HEADER header{};
     CHUI_ENTRY_RECORD entries[3]{};
@@ -201,15 +193,10 @@ int main(int argc, char** argv)
     entries[2].type = CHUI_FILE;
     strcpy_s(entries[2].caption, "Background image");
     strcpy_s(entries[2].options, "*.png=PNG images|*.*=All files");
-    CHUI_PATH_RECORD path{};
-    path.entryId = 111;
-    strcpy_s(path.value, "C:\\Images\\original.png");
-    strcpy_s(path.defaultValue, "C:\\Images\\default.png");
-    if (validateEx(&header, entries, &path, 1) != CHUI_STATUS_OK ||
-        openDialog(owner, &header, entries, notification) != CHUI_ERROR_PATH_COUNT)
-        return 31;
-    const LONG pathInstance = openDialogEx(owner, &header, entries, &path, 1,
-        notification);
+    strcpy_s(entries[2].value, "C:\\Images\\original.png");
+    strcpy_s(entries[2].defaultValue, "C:\\Images\\default.png");
+    if (validate(&header, entries) != CHUI_STATUS_OK) return 31;
+    const LONG pathInstance = openDialog(owner, &header, entries, notification);
     if (pathInstance <= 0) return 32;
     dialog = FindWindowW(L"CHTheme.StructuredDialog", L"ABI test");
     HWND browseButton = dialog ? GetDlgItem(dialog, 1002) : nullptr;
@@ -217,25 +204,25 @@ int main(int argc, char** argv)
     if (!browseButton || !pathDisplay) return 33;
     const char* updatedPath =
         "C:\\A deliberately long folder name used to prove that the companion "
-        "path record is not limited by the ordinary 128-byte entry value field\\"
+        "version-2 entry value is not limited by the former 128-byte field\\"
         "selected-background-image.png";
     if (!setEntryValue(static_cast<DWORD>(pathInstance), 111, updatedPath)) return 34;
     applyButton = GetDlgItem(dialog, 104);
     SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(104, BN_CLICKED),
         reinterpret_cast<LPARAM>(applyButton));
     if (!consume(notification, &completedInstance, &result) ||
-        result != CHUI_RESULT_APPLY || std::strcmp(path.value, updatedPath) ||
+        result != CHUI_RESULT_APPLY || std::strcmp(entries[2].value, updatedPath) ||
         !IsWindow(dialog)) return 35;
     SendMessageW(dialog, WM_CLOSE, 0, 0);
     if (!consume(notification, &completedInstance, &result) ||
-        result != CHUI_RESULT_CANCEL || std::strcmp(path.value, updatedPath)) return 36;
+        result != CHUI_RESULT_CANCEL ||
+        std::strcmp(entries[2].value, updatedPath)) return 36;
     DestroyWindow(owner);
 
-    std::printf("ABI=%08lX header=%lu entry=%lu path=%lu validation=PASS roundtrip=PASS\n",
+    std::printf("ABI=%08lX header=%lu entry=%lu validation=PASS roundtrip=PASS\n",
         static_cast<unsigned long>(getVersion()),
         static_cast<unsigned long>(getHeaderSize()),
-        static_cast<unsigned long>(getEntrySize()),
-        static_cast<unsigned long>(getPathSize()));
+        static_cast<unsigned long>(getEntrySize()));
     FreeLibrary(module);
     return 0;
 }

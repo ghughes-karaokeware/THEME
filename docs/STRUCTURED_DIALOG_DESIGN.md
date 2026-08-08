@@ -25,14 +25,13 @@ Initial value types were `ENTRY`, `NUMBER`, `DROPDOWN`, `CHECKBOX`, `RADIO`, and
 
 Reserved type values still permit later `PASSWORD` and `HOTKEY` additions without changing the version-1 record.
 
-FILE and FOLDER entries use a separate packed `CHUI_PATH_RECORD` keyed by entry
-ID. Its 4,096-byte current and default buffers avoid the ordinary 128-byte value
-limit without inflating every entry. `CHUI_OpenDialogEx` validates a one-to-one
-mapping, copies paths internally, and writes them back only on Apply or OK.
+ABI version 2 enlarges the ordinary entry `Value` field to 4,096 bytes. FILE and
+FOLDER therefore use the same entry array and the same Validate/Open/Apply/OK
+contract as other settings; no companion structure or special callback is used.
 
 Each entry contains version/size information, type, ID, parent ID, flags, dependency fields, numeric limits, a built-in icon ID, caption, current value, default value, dropdown options, help text, and reserved bytes. Dropdown options use bounded `stored-value=Display caption` pairs; stored values therefore remain stable when captions change.
 
-The original reserved 32-bit number at byte offset 36 is now named `IconID`. Values `CHUI_ICON_NONE` through `CHUI_ICON_INFORMATION` select DLL-owned, theme-colored scalable glyphs. This consumes an existing reserved slot, so ABI version `00010000H`, the 1,408-byte record size, and every subsequent field offset remain unchanged. Unknown icon IDs render as no icon for forward compatibility.
+The original reserved 32-bit number at byte offset 36 is named `IconID`. Values `CHUI_ICON_NONE` through `CHUI_ICON_INFORMATION` select DLL-owned, theme-colored scalable glyphs. ABI version 2 retains that offset while increasing the entry record to 5,376 bytes for the larger `Value` field. Unknown icon IDs render as no icon for forward compatibility.
 
 ## Minimal API
 
@@ -69,4 +68,4 @@ Application-variable metadata remains Clarion-only. A later helper may map Entry
 
 ## Deferred beyond the current proof of concept
 
-Search, application-supplied icon registration, tables, actual CompuHost globals, and migration of the production Setup dialog. Color/file/folder selection, callback-free action notifications, and transactional reset-all have since been implemented without changing the version-1 entry-record layout.
+Search, application-supplied icon registration, tables, actual CompuHost globals, and migration of the production Setup dialog. Color/file/folder selection, callback-free action notifications, and transactional reset-all are implemented in ABI version 2.

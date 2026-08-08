@@ -18,7 +18,7 @@
 
 namespace
 {
-constexpr DWORD kAbiVersion = 0x00010000;
+constexpr DWORD kAbiVersion = 0x00020000;
 constexpr DWORD kMaximumEntries = 512;
 constexpr wchar_t kDialogClass[] = L"CHTheme.StructuredDialog";
 constexpr int kCategoryListId = 100;
@@ -45,7 +45,6 @@ struct RuntimeEntry
     std::string baselineValue;
     std::string cancelValue;
     std::string defaultWorkingValue;
-    size_t pathIndex = static_cast<size_t>(-1);
     HWND control = nullptr;
     HWND valueLabel = nullptr;
     HWND pathDisplay = nullptr;
@@ -57,8 +56,6 @@ struct DialogData
     HWND owner = nullptr;
     HWND completionButton = nullptr;
     CHUI_ENTRY_RECORD* callerEntries = nullptr;
-    CHUI_PATH_RECORD* callerPaths = nullptr;
-    DWORD pathCount = 0;
     DWORD instanceId = 0;
     bool committed = false;
     bool rendering = false;
@@ -196,34 +193,6 @@ LONG Validate(const CHUI_DIALOG_HEADER* header, const CHUI_ENTRY_RECORD* entries
             return CHUI_ERROR_PARENT;
         if (entry.dependencyOperator > CHUI_DEPEND_NOT_EQUAL)
             return CHUI_ERROR_ARGUMENT;
-    }
-    return CHUI_STATUS_OK;
-}
-
-LONG ValidatePaths(const CHUI_DIALOG_HEADER* header,
-    const CHUI_ENTRY_RECORD* entries, const CHUI_PATH_RECORD* paths,
-    DWORD pathCount)
-{
-    const LONG base = Validate(header, entries);
-    if (base != CHUI_STATUS_OK) return base;
-    DWORD required = 0;
-    std::unordered_map<DWORD, DWORD> pathTypes;
-    for (DWORD index = 0; index < header->entryCount; ++index) {
-        if (entries[index].type == CHUI_FILE || entries[index].type == CHUI_FOLDER) {
-            ++required;
-            pathTypes.emplace(entries[index].id, entries[index].type);
-        }
-    }
-    if (pathCount != required || (pathCount && !paths)) return CHUI_ERROR_PATH_COUNT;
-    std::unordered_map<DWORD, bool> seen;
-    for (DWORD index = 0; index < pathCount; ++index) {
-        const auto target = pathTypes.find(paths[index].entryId);
-        if (target == pathTypes.end() || seen.find(paths[index].entryId) != seen.end())
-            return CHUI_ERROR_PATH_RECORD;
-        if (!IsTerminated(paths[index].value, sizeof(paths[index].value)) ||
-            !IsTerminated(paths[index].defaultValue,
-                sizeof(paths[index].defaultValue))) return CHUI_ERROR_STRING;
-        seen.emplace(paths[index].entryId, true);
     }
     return CHUI_STATUS_OK;
 }
@@ -633,7 +602,7 @@ bool ChooseEntryPath(DialogData& data, RuntimeEntry& entry)
     bool changed = false;
     if (SUCCEEDED(result) && selectedPath) {
         const std::string utf8 = WideToUtf8(selectedPath);
-        if (utf8.size() < sizeof(CHUI_PATH_RECORD::value)) {
+        if (utf8.size() < sizeof(CHUI_ENTRY_RECORD::value)) {
             entry.workingValue = utf8;
             if (IsWindow(entry.pathDisplay))
                 SetWindowTextW(entry.pathDisplay, selectedPath);
@@ -1351,12 +1320,8 @@ bool CommitWorkingValues(DialogData& data, bool establishBaseline)
     if (!ValidateWorkingValues(data)) return false;
     for (auto& entry : data.entries) {
         if (!IsValueType(entry.definition.type)) continue;
-        if (entry.pathIndex != static_cast<size_t>(-1))
-            strncpy_s(data.callerPaths[entry.pathIndex].value,
-                entry.workingValue.c_str(), _TRUNCATE);
-        else
-            strncpy_s(data.callerEntries[entry.sourceIndex].value,
-                entry.workingValue.c_str(), _TRUNCATE);
+        strncpy_s(data.callerEntries[entry.sourceIndex].value,
+            entry.workingValue.c_str(), _TRUNCATE);
         if (establishBaseline) {
             entry.baselineValue = entry.workingValue;
             entry.cancelValue = entry.workingValue;
@@ -1387,12 +1352,8 @@ void Complete(DialogData& data, LONG result)
     } else {
         for (const auto& entry : data.entries) {
             if (!IsValueType(entry.definition.type)) continue;
-            if (entry.pathIndex != static_cast<size_t>(-1))
-                strncpy_s(data.callerPaths[entry.pathIndex].value,
-                    entry.cancelValue.c_str(), _TRUNCATE);
-            else
-                strncpy_s(data.callerEntries[entry.sourceIndex].value,
-                    entry.cancelValue.c_str(), _TRUNCATE);
+            strncpy_s(data.callerEntries[entry.sourceIndex].value,
+                entry.cancelValue.c_str(), _TRUNCATE);
         }
     }
     DestroyWindow(data.window);
@@ -1425,8 +1386,7 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         if (!request) return FALSE;
         RuntimeEntry* entry = FindEntry(*data, request->entryId);
         if (!entry || !IsValueType(entry->definition.type)) return FALSE;
-        if (entry->pathIndex == static_cast<size_t>(-1) &&
-            request->value.size() >= sizeof(CHUI_ENTRY_RECORD::value)) return FALSE;
+        if (request->value.size() >= sizeof(CHUI_ENTRY_RECORD::value)) return FALSE;
         if (entry->definition.type == CHUI_DROPDOWN) {
             const auto options = ParseOptions(entry->definition.options);
             if (std::none_of(options.begin(), options.end(),
@@ -1730,7 +1690,6 @@ bool EnsureDialogClass()
 DWORD __stdcall CHUI_GetAbiVersion() { return kAbiVersion; }
 DWORD __stdcall CHUI_GetHeaderSize() { return sizeof(CHUI_DIALOG_HEADER); }
 DWORD __stdcall CHUI_GetEntrySize() { return sizeof(CHUI_ENTRY_RECORD); }
-DWORD __stdcall CHUI_GetPathRecordSize() { return sizeof(CHUI_PATH_RECORD); }
 
 LONG __stdcall CHUI_ValidateDialog(const CHUI_DIALOG_HEADER* header,
     const CHUI_ENTRY_RECORD* entries)
@@ -1738,18 +1697,10 @@ LONG __stdcall CHUI_ValidateDialog(const CHUI_DIALOG_HEADER* header,
     return Validate(header, entries);
 }
 
-LONG __stdcall CHUI_ValidateDialogEx(const CHUI_DIALOG_HEADER* header,
-    const CHUI_ENTRY_RECORD* entries, const CHUI_PATH_RECORD* paths,
-    DWORD pathCount)
-{
-    return ValidatePaths(header, entries, paths, pathCount);
-}
-
 LONG OpenDialogCore(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
-    CHUI_ENTRY_RECORD* entries, CHUI_PATH_RECORD* paths, DWORD pathCount,
-    HWND completionButton)
+    CHUI_ENTRY_RECORD* entries, HWND completionButton)
 {
-    const LONG valid = ValidatePaths(header, entries, paths, pathCount);
+    const LONG valid = Validate(header, entries);
     if (valid != CHUI_STATUS_OK) return valid;
     if (!IsWindow(ownerWindow) || !IsWindow(completionButton)) return CHUI_ERROR_ARGUMENT;
     if (!EnsureDialogClass()) return CHUI_ERROR_WINDOW;
@@ -1768,33 +1719,19 @@ LONG OpenDialogCore(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
     data->owner = ownerWindow;
     data->completionButton = completionButton;
     data->callerEntries = entries;
-    data->callerPaths = paths;
-    data->pathCount = pathCount;
     data->instanceId = g_nextInstance.fetch_add(1);
     if (!data->instanceId) data->instanceId = g_nextInstance.fetch_add(1);
     data->title = Utf8ToWide(header->title);
     if (data->title.empty()) data->title = L"Structured Dialog";
     data->entries.reserve(header->entryCount);
-    std::unordered_map<DWORD, size_t> pathsByEntry;
-    for (DWORD index = 0; index < pathCount; ++index)
-        pathsByEntry.emplace(paths[index].entryId, index);
     for (DWORD index = 0; index < header->entryCount; ++index) {
         RuntimeEntry runtime{};
         runtime.definition = entries[index];
         runtime.sourceIndex = index;
-        const auto path = pathsByEntry.find(entries[index].id);
-        if (path != pathsByEntry.end()) {
-            runtime.pathIndex = path->second;
-            runtime.workingValue = paths[path->second].value[0]
-                ? paths[path->second].value : paths[path->second].defaultValue;
-            runtime.defaultWorkingValue = paths[path->second].defaultValue;
-            runtime.cancelValue = paths[path->second].value;
-        } else {
-            runtime.workingValue = entries[index].value[0]
-                ? entries[index].value : entries[index].defaultValue;
-            runtime.defaultWorkingValue = entries[index].defaultValue;
-            runtime.cancelValue = entries[index].value;
-        }
+        runtime.workingValue = entries[index].value[0]
+            ? entries[index].value : entries[index].defaultValue;
+        runtime.defaultWorkingValue = entries[index].defaultValue;
+        runtime.cancelValue = entries[index].value;
         runtime.baselineValue = runtime.workingValue;
         data->byId.emplace(runtime.definition.id, index);
         data->entries.push_back(std::move(runtime));
@@ -1827,16 +1764,7 @@ LONG OpenDialogCore(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
 LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
     CHUI_ENTRY_RECORD* entries, HWND completionButton)
 {
-    return OpenDialogCore(ownerWindow, header, entries, nullptr, 0,
-        completionButton);
-}
-
-LONG __stdcall CHUI_OpenDialogEx(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
-    CHUI_ENTRY_RECORD* entries, CHUI_PATH_RECORD* paths, DWORD pathCount,
-    HWND completionButton)
-{
-    return OpenDialogCore(ownerWindow, header, entries, paths, pathCount,
-        completionButton);
+    return OpenDialogCore(ownerWindow, header, entries, completionButton);
 }
 
 LONG __stdcall CHUI_ConsumeCompletion(HWND completionButton,
@@ -1888,8 +1816,8 @@ LONG __stdcall CHUI_SetEntryValue(DWORD instanceId, DWORD entryId,
     const char* value)
 {
     if (!instanceId || !entryId || !value) return FALSE;
-    const size_t length = strnlen_s(value, sizeof(CHUI_PATH_RECORD::value));
-    if (length >= sizeof(CHUI_PATH_RECORD::value)) return FALSE;
+    const size_t length = strnlen_s(value, sizeof(CHUI_ENTRY_RECORD::value));
+    if (length >= sizeof(CHUI_ENTRY_RECORD::value)) return FALSE;
     HWND window = nullptr;
     {
         std::lock_guard<std::mutex> lock(g_mutex);

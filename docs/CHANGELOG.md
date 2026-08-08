@@ -3,9 +3,9 @@
 ## 2026-08-08
 
 - Added integrated `CHUI_FILE` and `CHUI_FOLDER` controls with a read-only path display, themed Browse button, modern Windows file/folder picker, and FILE filter definitions.
-- Added the fixed 8,196-byte `CHUI_PATH_RECORD`, `CHUI_GetPathRecordSize`, `CHUI_ValidateDialogEx`, and `CHUI_OpenDialogEx`; only path entries allocate 4,096-byte current/default buffers, preserving the original dialog header and entry ABI sizes.
+- Advanced the structured-dialog ABI to `00020000H` and enlarged every entry's single `Value` field to 4,096 bytes, allowing FILE/FOLDER settings to use the same declaration, validation, open, Apply, and OK flow as every other setting.
 - Implemented transactional path defaults, Reset All, dirty detection, Apply/OK write-back, and Cancel-to-last-Apply behavior.
-- Extended the 32-bit harness to validate path-record mapping, reject legacy opening when companion records are required, update a path longer than 128 bytes, and verify Apply/Cancel round trips.
+- Extended the 32-bit harness to update a FILE path longer than 128 bytes directly through its ordinary entry and verify Apply/Cancel round trips.
 - Added ABI-compatible `CHUI_ACTION` entries and the `CHUI_ConsumeAction` export for invoking existing Clarion procedures from themed structured-dialog buttons.
 - Extended the harness to verify action validation, ID delivery, dialog persistence, isolation from the completion queue, and subsequent Cancel completion.
 - Added a themed `Reset All Settings` footer button with confirmation and transactional restoration of declared defaults; Cancel can still discard the reset.
