@@ -1,5 +1,7 @@
 # Changelog
 
+- Corrected Promo Designer header/toolbar spacing and removed native owner-draw background/focus artifacts from its modern buttons and color swatches.
+
 ## 2026-08-08
 
 - Added the first native Promo Trailer Designer proof of concept: packed Clarion ABI, modeless transactional editor, legacy tag parser/canonical serializer, per-line isolation, color palette, Bold/Italic/Underline, Undo/Redo, keyboard formatting, CP1252/length validation, and shared hidden-button completion flow.
