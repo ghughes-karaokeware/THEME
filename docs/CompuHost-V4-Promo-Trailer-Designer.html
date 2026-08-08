@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CompuHost V4 Promo-Trailer Designer</title>
+<style>
+body{margin:0;background:#f4f7fb;color:#182333;font:15px/1.55 "Segoe UI",Arial,sans-serif}header{padding:34px max(22px,calc((100% - 1050px)/2));color:#fff;background:linear-gradient(130deg,#0c233b,#0877d1)}main{max-width:1050px;margin:24px auto 60px;padding:0 18px}section{margin:18px 0;padding:24px;background:#fff;border:1px solid #d8e0ea;border-radius:10px}h1,h2,h3{line-height:1.2}h2{margin-top:0}code{background:#e9f4ff;color:#07538e;padding:1px 4px;border-radius:3px}pre{overflow:auto;background:#101a27;color:#eaf2fa;padding:15px;border-radius:8px;font:13px/1.45 Consolas,monospace}pre code{display:block;padding:0;background:transparent;color:inherit;border-radius:0}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #d8e0ea;text-align:left;vertical-align:top}.note{padding:12px 14px;border-left:4px solid #0877d1;background:#e9f4ff}.warn{border-color:#a86100;background:#fff6e8}.ok{border-color:#16834a;background:#ecfbf3}.steps li{margin:.45em 0}@media print{body{background:#fff}section{border:0;border-bottom:1px solid #aaa;break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+<h1>CompuHost V4 Promo-Trailer Designer</h1>
+<p>Clarion 10 integration, file ownership, callback processing, and release-candidate testing.</p>
+<small>Updated August 8, 2026 &middot; Promo ABI 00010000H &middot; Data record 4,256 bytes &middot; Text capacity 4,096 bytes</small>
+</header>
+<main>
+
+<section>
+<h2>Purpose and ownership</h2>
+<p><code>CHTheme.dll</code> supplies a modeless, themed Promo-Trailer editor with per-line formatting, colors, Undo/Redo, Clear, Auto-load selection, and integrated <code>.PRM</code> Load/Save dialogs. Each nonblank physical line is one Promo-Trailer and advances on the next online scrolling rotation.</p>
+<p class="note"><strong>CompuHost V4 rule:</strong> the returned encoded text is authoritative. Preserve <code>&lt;APP&gt;</code>, <code>&lt;NOAPP&gt;</code>, color, Bold, Italic, and Underline tags. V4 uses the DLL's file-based <code>.PRM</code> workflow and must not rebuild the legacy CompuHost V3 Promo queue.</p>
+<p>Clarion owns the caller-provided data record until the modeless designer closes. The DLL owns the editor window, file dialogs, remembered <code>.PRM</code> folder, and safe window placement.</p>
+</section>
+
+<section>
+<h2>CompuHost V4 implementation - concise checklist</h2>
+<ol class="steps">
+<li>Confirm the release-candidate <code>CHTheme.dll</code>, <code>CHTheme.lib</code>, and <code>CHPromoDesignerTypes.inc</code> are in the CompuHost V4 project/runtime locations.</li>
+<li>Add <code>INCLUDE('CHPromoDesignerTypes.inc')</code> to Global Data.</li>
+<li>Add the five <code>CHPT_...</code> imports to the existing <code>MODULE('CHTheme.dll')</code> in the Global MAP.</li>
+<li>Add the exact 4,256-byte <code>PromoData</code> group and state variables to the procedure that owns the existing Promo-Trailer command.</li>
+<li>Reuse an existing hidden callback button or add <code>?CHUIComplete</code>; it must remain alive while the designer is open.</li>
+<li>In the existing Promo-Trailer command's <code>EVENT:Accepted</code>, prepare the data, validate the ABI, and call <code>CHPT_OpenDesigner</code>.</li>
+<li>At the beginning of <code>?CHUIComplete / EVENT:Accepted</code>, consume Promo completion. On OK, copy the complete <code>PromoData.Text</code>, read the Auto-load flag, set <code>GLO:PromoChanged</code>, and post <code>Event:ResetRotationScroller</code>.</li>
+<li>Do not test the old RTF field, parse individual lines, strip routing tags, or load the former Promo queue.</li>
+<li>Prevent the owner window from closing while <code>PromoDesignerInstance</code> is nonzero.</li>
+<li>Regenerate and compile CompuHost V4 Win32 Release, then perform the acceptance tests at the end of this guide.</li>
+</ol>
+</section>
+
+<section>
+<h2>1. Installed files</h2>
+<table>
+<tr><th>File</th><th>Required location</th><th>Purpose</th></tr>
+<tr><td><code>CHTheme.dll</code></td><td>Beside the CompuHost V4 EXE</td><td>Runtime implementation</td></tr>
+<tr><td><code>CHTheme.lib</code></td><td>CompuHost V4 project/link path</td><td>Clarion import library containing the five <code>CHPT_...</code> exports</td></tr>
+<tr><td><code>CHPromoDesignerTypes.inc</code></td><td>CompuHost V4 project folder or Clarion INCLUDE path</td><td>ABI constants, results, flags, and capacity equates</td></tr>
+</table>
+<p>The include must retain Windows CRLF line endings. The current release-candidate DLL SHA-256 is:</p>
+<pre><code>4B8A7D5BF8E26D9055D378AA0EA721DDFE8A246FC5880F287F85323562120C4D</code></pre>
+</section>
+
+<section>
+<h2>2. Global include and MAP</h2>
+<p>Add to <strong>Global Properties &gt; Embeds &gt; Global Data</strong>:</p>
+<pre><code>  INCLUDE('CHPromoDesignerTypes.inc')</code></pre>
+<p>Add these declarations to the existing <code>MODULE('CHTheme.dll')</code> inside the Global MAP:</p>
+<pre><code>CHPT_GetAbiVersion(),ULONG,PASCAL,RAW,NAME('CHPT_GetAbiVersion')
+CHPT_GetDataSize(),ULONG,PASCAL,RAW,NAME('CHPT_GetDataSize')
+CHPT_ValidateData(LONG DataAddress),LONG,PASCAL,RAW,NAME('CHPT_ValidateData')
+CHPT_OpenDesigner(LONG OwnerHwnd,LONG DataAddress,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHPT_OpenDesigner')
+CHPT_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DesignerResult),LONG,PASCAL,RAW,NAME('CHPT_ConsumeCompletion')</code></pre>
+<p class="note">Keep these imports inside the same DLL module used by the Structured Setup APIs. Do not declare a second conflicting <code>MODULE('CHTheme.dll')</code>.</p>
+</section>
+
+<section>
+<h2>3. Procedure data</h2>
+<p>Add this exact inline group before the owner window declaration. The inline declaration is safest in Clarion 10 when the procedure is generated into a separate MEMBER module.</p>
+<pre><code>PromoData               GROUP
+Version                    ULONG
+StructureSize              ULONG
+Flags                      ULONG
+BufferCapacity             ULONG
+MaximumLength              ULONG
+InstanceID                 ULONG
+Result                     LONG
+InputLength                ULONG
+OutputLength               ULONG
+Text                       CSTRING(4096)
+Reserved                   STRING(124)
+                        END
+PromoDesignerInstance   ULONG
+PromoCompletedInstance  ULONG
+PromoDesignerResult     LONG
+PromoDesignerStatus     LONG
+PromoAutoload           BYTE</code></pre>
+<p><code>SIZE(PromoData)</code> must equal 4256. Ensure <code>AdvertLine</code> and <code>GLO:PromoTrailer</code> can hold the complete returned encoded value; 4,096 bytes is recommended.</p>
+<p>If the procedure does not already have a hidden notification control, add:</p>
+<pre><code>BUTTON(''),AT(0,0,1,1),USE(?CHUIComplete),HIDE</code></pre>
+</section>
+
+<section>
+<h2>4. Prepare the designer</h2>
+<p>Add this local routine. Supply the current V4 encoded Promo-Trailer string directly; do not convert it through the former RTF editor or Promo queue.</p>
+<pre><code>PreparePromoDesigner ROUTINE
+  CLEAR(PromoData)
+  PromoData.Version = CHPT_ABI_VERSION
+  PromoData.StructureSize = SIZE(PromoData)
+  PromoData.BufferCapacity = CHPT_TEXT_CAPACITY
+  PromoData.MaximumLength = 4095
+
+  IF PromoAutoload
+    PromoData.Flags = BOR(PromoData.Flags,CHPT_FLAG_AUTOLOAD)
+  END
+
+  PromoData.Text = AdvertLine</code></pre>
+<p>If CompuHost stores the accepted value directly in <code>GLO:PromoTrailer</code>, the final line can instead be:</p>
+<pre><code>  PromoData.Text = GLO:PromoTrailer</code></pre>
+</section>
+
+<section>
+<h2>5. Open command - EVENT:Accepted</h2>
+<p>Replace the old Promo editor launch with this block:</p>
+<pre><code>IF PromoDesignerInstance
+  MESSAGE('The Promo-Trailer Designer is already open.')
+  CYCLE
+END
+
+DO PreparePromoDesigner
+
+IF CHPT_GetAbiVersion() &lt;&gt; CHPT_ABI_VERSION
+  MESSAGE('Promo Designer ABI version mismatch.')
+  CYCLE
+END
+
+IF CHPT_GetDataSize() &lt;&gt; SIZE(PromoData)
+  MESSAGE('Promo structure mismatch. Clarion=' &amp; SIZE(PromoData) &amp; |
+          ' DLL=' &amp; CHPT_GetDataSize())
+  CYCLE
+END
+
+PromoDesignerStatus = CHPT_ValidateData(ADDRESS(PromoData))
+IF PromoDesignerStatus &lt;&gt; CHPT_STATUS_OK
+  MESSAGE('Promo data validation failed: ' &amp; PromoDesignerStatus)
+  CYCLE
+END
+
+PromoDesignerStatus = CHPT_OpenDesigner( |
+  0{PROP:Handle}, |
+  ADDRESS(PromoData), |
+  ?CHUIComplete{PROP:Handle})
+
+IF PromoDesignerStatus &gt; 0
+  PromoDesignerInstance = PromoDesignerStatus
+ELSE
+  MESSAGE('Unable to open Promo Designer: ' &amp; PromoDesignerStatus)
+END</code></pre>
+</section>
+
+<section>
+<h2>6. Complete return event</h2>
+<p>Place this at the beginning of <code>?CHUIComplete / EVENT:Accepted</code>, before existing Structured Setup consumers. The two completion queues are independent.</p>
+<pre><code>IF CHPT_ConsumeCompletion( |
+    ?CHUIComplete{PROP:Handle}, |
+    PromoCompletedInstance, |
+    PromoDesignerResult)
+
+  IF PromoCompletedInstance = PromoDesignerInstance
+    CASE PromoDesignerResult
+
+    OF CHPT_RESULT_OK
+      ! Preserve the complete encoded buffer, including APP/NOAPP tags.
+      AdvertLine = PromoData.Text
+      GLO:PromoTrailer = AdvertLine
+
+      PromoAutoload = CHOOSE( |
+        BAND(PromoData.Flags,CHPT_FLAG_AUTOLOAD) &lt;&gt; 0, |
+        1, |
+        0)
+
+      ! Persist AdvertLine and PromoAutoload using the normal V4
+      ! configuration-save path here, if that path is not automatic.
+
+      GLO:PromoChanged = 1
+      POST(Event:ResetRotationScroller,,ScrollerWindow)
+
+    OF CHPT_RESULT_CANCEL
+      ! Cancel and title-bar X leave caller data unchanged.
+    END
+
+    PromoDesignerInstance = 0
+  END
+END
+
+! Existing Structured Setup action/change/completion handling follows.</code></pre>
+<p class="note ok"><strong>Empty is valid:</strong> when the user accepts an empty designer, <code>PromoData.Text</code> is empty and the code above clears the current Promo-Trailers. Do not wrap this callback in <code>IF CLIP(LOC:RTFTempText) &lt;&gt; ''</code>.</p>
+</section>
+
+<section>
+<h2>7. Tag and line rules</h2>
+<table>
+<tr><th>Item</th><th>Required behavior</th></tr>
+<tr><td>Physical lines</td><td>Each nonblank CR/LF-delimited line is one Promo-Trailer. The DLL omits blank lines when OK is accepted.</td></tr>
+<tr><td><code>&lt;APP&gt;</code></td><td>Preserve unchanged for downstream routing.</td></tr>
+<tr><td><code>&lt;NOAPP&gt;</code></td><td>Preserve unchanged for downstream routing.</td></tr>
+<tr><td>Formatting tags</td><td>Preserve color 0-9, Bold, Italic, and Underline tags returned by the DLL.</td></tr>
+<tr><td>Clarion literals</td><td>Write a runtime <code>&lt;APP&gt;</code> tag as <code>'&lt;&lt;APP&gt;'</code> in Clarion source because Clarion doubles the literal less-than character.</td></tr>
+<tr><td>Returned buffer</td><td><code>PromoData.Text</code> already contains the proper runtime single less-than characters. Assign it directly; do not double or replace them.</td></tr>
+</table>
+<p class="warn note"><strong>Remove from the V4 callback:</strong> all <code>FREE(GLO:PromoQueue)</code>, <code>ADD(GLO:PromoQueue)</code>, <code>PMQ:PromoMessage</code>, line splitting, and <code>ReplaceStr</code> calls that remove <code>APP</code>/<code>NOAPP</code>.</p>
+</section>
+
+<section>
+<h2>8. File and window behavior</h2>
+<ul>
+<li>Load and Save are handled entirely by the DLL and operate on <code>.PRM</code> files.</li>
+<li>The first selector opens in the launching application's folder.</li>
+<li>After a successful Load or Save, the DLL remembers the last folder per Windows user at <code>HKCU\Software\Karaokeware\CHTheme\PromoDesigner\LastPrmFolder</code>.</li>
+<li>Only the encoded Promo-Trailer text is stored in the file. The caller receives that text through <code>PromoData.Text</code> after OK.</li>
+<li>The Auto-load checkbox is returned separately in <code>CHPT_FLAG_AUTOLOAD</code>.</li>
+<li>The normal window rectangle is stored as <code>WindowRect</code> under the same registry key and constrained to the current primary work area when restored.</li>
+</ul>
+</section>
+
+<section>
+<h2>9. Owner close protection</h2>
+<p>Do not destroy the callback control or <code>PromoData</code> while the modeless designer remains open. In the owner procedure's <code>EVENT:CloseWindow</code>:</p>
+<pre><code>IF PromoDesignerInstance
+  MESSAGE('Close the Promo-Trailer Designer before closing CompuHost V4.')
+  CYCLE
+END</code></pre>
+<p>If Structured Setup shares the owner and callback, combine both guards:</p>
+<pre><code>IF DialogInstance OR PromoDesignerInstance
+  MESSAGE('Close Setup or the Promo-Trailer Designer first.')
+  CYCLE
+END</code></pre>
+</section>
+
+<section>
+<h2>10. Build and acceptance test</h2>
+<ol class="steps">
+<li>Regenerate the application from the Clarion IDE so embed changes are retained.</li>
+<li>Build CompuHost V4 Win32 Release and resolve every new warning or error.</li>
+<li>Confirm the runtime DLL hash matches the release candidate shown above.</li>
+<li>Open the designer with existing formatted, <code>APP</code>, and <code>NOAPP</code> content. Confirm tags are hidden and formatting is rendered.</li>
+<li>Exercise Bold, Italic, Underline, colors, keyboard shortcuts, Undo/Redo, Clear, resizing, and hover feedback.</li>
+<li>Use Load and Save; confirm <code>.PRM</code> content round-trips and the last folder is recalled.</li>
+<li>Press Cancel and confirm the application values and Auto-load state remain unchanged.</li>
+<li>Press Set Promo-Trailers and Exit; confirm the complete encoded value and Auto-load flag are accepted.</li>
+<li>Reopen and confirm the accepted formatting and routing tags reconstruct exactly.</li>
+<li>Accept an empty editor and confirm current Promo-Trailers clear correctly.</li>
+<li>Confirm the rotation scroller receives <code>Event:ResetRotationScroller</code>.</li>
+<li>Restart CompuHost and verify the V4 persistence path restores the accepted text and Auto-load state.</li>
+</ol>
+</section>
+
+<section>
+<h2>Release-candidate boundary</h2>
+<p>This guide documents the approved integration contract. Staging the DLL does not itself modify CompuHost application embeds. Apply the Clarion changes through the Application Generator embeds, regenerate, compile, and test before designating the candidate as production.</p>
+</section>
+
+</main>
+</body>
+</html>

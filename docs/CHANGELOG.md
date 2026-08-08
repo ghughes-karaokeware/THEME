@@ -9,6 +9,7 @@
 - Staged the CRLF `CHPromoDesignerTypes.inc` in the Clarion accessory, CompuHost V4, and Test_Setup locations.
 - Documented the CompuHost V4 file-based return contract: preserve `APP`/`NOAPP` tags and do not rebuild the legacy V3 queue.
 - Created the recovery package `CHTheme-Promo-RC-PreDeploy-20260808-134504` with pre-deployment and post-deployment manifests.
+- Added `CompuHost-V4-Promo-Trailer-Designer.html`, including a concise V4 checklist, complete Clarion declarations and callbacks, tag/file ownership rules, and acceptance testing.
 
 - Corrected Promo Designer header/toolbar spacing and removed native owner-draw background/focus artifacts from its modern buttons and color swatches.
 - Added internal `.PRM` Load, Save, and Clear commands plus transactional Auto-load-on-startup flag round-tripping.
