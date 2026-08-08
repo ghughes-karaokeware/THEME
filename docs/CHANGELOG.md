@@ -5,6 +5,7 @@
 - Added ABI-compatible `CHUI_COLOR` structured-dialog entries with a current-color swatch, native Windows color picker, decimal Clarion `LONG` write-back, and Cancel preservation.
 - Added `CHUI_COLOR EQUATE(16)` to the Clarion include and linked the Windows common-dialog library for Win32 builds.
 - Extended the ABI harness to validate color-entry records and rebuilt Win32 Release with zero warnings and zero errors.
+- Re-normalized `CHStructuredDialogTypes.inc` to ASCII CRLF after adding the color equate and verified zero bare linefeeds in both the repository and staged Test_Setup copies.
 - Verified the Structured Dialog proof of concept from Clarion in both two-panel and three-panel configurations.
 - Preserved ABI version `00010000H` and all existing Clarion integration declarations.
 - Enabled Windows dark styling for the native title bar and child controls.
