@@ -18,7 +18,7 @@ constexpr COLORREF kBg = RGB(5, 15, 25), kPanel = RGB(14, 31, 46), kBorder = RGB
 constexpr int ID_EDITOR = 100, ID_BOLD = 110, ID_ITALIC = 111, ID_UNDERLINE = 112, ID_UNDO = 113, ID_REDO = 114, ID_AUTOLOAD = 115, ID_LOAD = 116, ID_SAVE = 117, ID_CLEAR = 118, ID_OK = 120, ID_CANCEL = 121, ID_COLOR0 = 200;
 const COLORREF kColors[10] = { RGB(255,255,255), RGB(255,255,255), RGB(255,255,0), RGB(255,0,0), RGB(52,204,255), RGB(52,255,52), RGB(255,128,0), RGB(255,0,255), RGB(128,0,128), RGB(255,204,0) };
 struct Completion { DWORD instance; LONG result; };
-struct Data { HWND window{}, owner{}, notify{}, editor{}; CHPT_PROMO_DATA* caller{}; DWORD instance{}; std::string original; std::wstring prmFolder; HFONT font{}, titleFont{}; bool completed{}, autoload{}; int hoverId{}; };
+struct Data { HWND window{}, owner{}, notify{}, editor{}; CHPT_PROMO_DATA* caller{}; DWORD instance{}; std::string original; std::wstring prmFolder; HFONT font{}, titleFont{}; HICON iconSmall{},iconLarge{}; bool completed{}, autoload{}; int hoverId{}; };
 std::mutex gLock; std::unordered_map<HWND, std::unique_ptr<Data>> gWindows; std::unordered_map<HWND, std::deque<Completion>> gCompletions; DWORD gNext = 1; HMODULE gRich{};
 void Debug(const Data& d,const wchar_t* event,DWORD value=0){if(!(d.caller->flags&CHPT_FLAG_DEBUG_LOG))return;wchar_t line[180]{};wsprintfW(line,L"CHPT instance=%lu %s value=%lu input=%lu output=%lu\n",d.instance,event,value,d.caller->inputLength,d.caller->outputLength);OutputDebugStringW(line);}
 
@@ -59,6 +59,11 @@ LRESULT CALLBACK ButtonSubclass(HWND button, UINT msg, WPARAM wp, LPARAM lp, UIN
     if(msg==WM_MOUSEMOVE&&d->hoverId!=GetDlgCtrlID(button)){d->hoverId=GetDlgCtrlID(button);TRACKMOUSEEVENT track{sizeof(track),TME_LEAVE,button,0};TrackMouseEvent(&track);InvalidateRect(button,nullptr,FALSE);}
     else if(msg==WM_MOUSELEAVE&&d->hoverId==GetDlgCtrlID(button)){d->hoverId=0;InvalidateRect(button,nullptr,FALSE);}
     return DefSubclassProc(button,msg,wp,lp);
+}
+
+HICON CreatePromoIcon(int size)
+{
+    HDC screen=GetDC(nullptr),colorDc=CreateCompatibleDC(screen),maskDc=CreateCompatibleDC(screen);HBITMAP color=CreateCompatibleBitmap(screen,size,size),mask=CreateBitmap(size,size,1,1,nullptr);ReleaseDC(nullptr,screen);HGDIOBJ oldColor=SelectObject(colorDc,color),oldMask=SelectObject(maskDc,mask);RECT bounds{0,0,size,size};FillRect(maskDc,&bounds,static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)));HBRUSH opaque=static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));HGDIOBJ oldMaskBrush=SelectObject(maskDc,opaque);Ellipse(maskDc,0,0,size,size);SelectObject(maskDc,oldMaskBrush);FillRect(colorDc,&bounds,static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));HBRUSH blue=CreateSolidBrush(RGB(0,105,210));HPEN bluePen=CreatePen(PS_SOLID,1,RGB(55,170,255));HGDIOBJ oldBrush=SelectObject(colorDc,blue),oldPen=SelectObject(colorDc,bluePen);Ellipse(colorDc,0,0,size,size);HBRUSH gold=CreateSolidBrush(RGB(255,204,0));HPEN goldPen=CreatePen(PS_SOLID,std::max(1,size/16),RGB(255,235,120));SelectObject(colorDc,gold);SelectObject(colorDc,goldPen);POINT horn[4]{{size*3/16,size*7/16},{size*11/16,size*3/16},{size*11/16,size*13/16},{size*3/16,size*9/16}};Polygon(colorDc,horn,4);RECT mouth{size*10/16,size*3/16,size*14/16,size*13/16};RoundRect(colorDc,mouth.left,mouth.top,mouth.right,mouth.bottom,std::max(2,size/8),std::max(2,size/8));RECT handle{size*5/16,size*9/16,size*8/16,size*15/16};RoundRect(colorDc,handle.left,handle.top,handle.right,handle.bottom,std::max(2,size/10),std::max(2,size/10));SelectObject(colorDc,oldBrush);SelectObject(colorDc,oldPen);DeleteObject(blue);DeleteObject(bluePen);DeleteObject(gold);DeleteObject(goldPen);SelectObject(colorDc,oldColor);SelectObject(maskDc,oldMask);DeleteDC(colorDc);DeleteDC(maskDc);ICONINFO info{};info.fIcon=TRUE;info.hbmColor=color;info.hbmMask=mask;HICON icon=CreateIconIndirect(&info);DeleteObject(color);DeleteObject(mask);return icon;
 }
 
 void LoadDocument(Data& d)
@@ -151,7 +156,7 @@ void Layout(Data& d)
 {
     RECT r{}; GetClientRect(d.window, &r); const int m = 20, top = 150, bottom = 72;
     MoveWindow(d.editor, m, top, std::max(100, static_cast<int>(r.right) - m * 2), std::max(80, static_cast<int>(r.bottom) - top - bottom), TRUE);
-    const int y=r.bottom-48;MoveWindow(GetDlgItem(d.window,ID_LOAD),20,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_SAVE),120,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_OK),r.right-342,y,222,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_CANCEL),r.right-102,y,78,32,TRUE);
+    const int y=r.bottom-48;MoveWindow(GetDlgItem(d.window,ID_LOAD),20,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_SAVE),120,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_OK),r.right-380,y,260,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_CANCEL),r.right-102,y,78,32,TRUE);
 }
 LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -161,6 +166,7 @@ LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
     switch (msg) {
     case WM_CREATE: {
         BOOL darkTitle=TRUE;DwmSetWindowAttribute(w,20,&darkTitle,sizeof(darkTitle));
+        d->iconSmall=CreatePromoIcon(16);d->iconLarge=CreatePromoIcon(32);SendMessageW(w,WM_SETICON,ICON_SMALL,reinterpret_cast<LPARAM>(d->iconSmall));SendMessageW(w,WM_SETICON,ICON_BIG,reinterpret_cast<LPARAM>(d->iconLarge));
         d->font = CreateFontW(-16,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");d->titleFont=CreateFontW(-20,0,0,0,FW_SEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
         auto button=[&](int id,const wchar_t* text,int x,int y,int width){HWND h=CreateWindowExW(0,L"BUTTON",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,x,y,width,30,w,reinterpret_cast<HMENU>(id),nullptr,nullptr);SendMessageW(h,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE);SetWindowSubclass(h,ButtonSubclass,1,reinterpret_cast<DWORD_PTR>(d));};
         button(ID_BOLD,L"B",20,72,36);button(ID_ITALIC,L"I",60,72,36);button(ID_UNDERLINE,L"U",100,72,36);
@@ -168,7 +174,7 @@ LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
         button(ID_UNDO,L"Undo",510,72,58);button(ID_REDO,L"Redo",572,72,58);button(ID_CLEAR,L"Clear",646,72,70);
         button(ID_AUTOLOAD,L"Auto-load selected Promo Trailer on startup",20,110,410);
         button(ID_LOAD,L"Load",0,0,92);button(ID_SAVE,L"Save",0,0,92);
-        button(ID_OK,L"Set Promo-Trailers and Exit",0,0,222);button(ID_CANCEL,L"Cancel",0,0,78);
+        button(ID_OK,L"Set Promo-Trailers and Exit",0,0,260);button(ID_CANCEL,L"Cancel",0,0,78);
         d->autoload=(d->caller->flags&CHPT_FLAG_AUTOLOAD)!=0;InitializePrmFolder(*d);
         d->editor=CreateWindowExW(0,MSFTEDIT_CLASS,L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN,18,100,700,350,w,reinterpret_cast<HMENU>(ID_EDITOR),nullptr,nullptr);
         SendMessageW(d->editor,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE); SendMessageW(d->editor,EM_SETBKGNDCOLOR,0,kPanel); SendMessageW(d->editor,EM_SETLIMITTEXT,d->caller->maximumLength,0); SetWindowSubclass(d->editor,EditorSubclass,1,reinterpret_cast<DWORD_PTR>(d)); CHARFORMAT2W base{};base.cbSize=sizeof(base);base.dwMask=CFM_COLOR;base.crTextColor=kText;SendMessageW(d->editor,EM_SETCHARFORMAT,SCF_ALL,reinterpret_cast<LPARAM>(&base));LoadDocument(*d); Layout(*d); return 0; }
@@ -195,7 +201,7 @@ LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
         case ID_OK: if(SaveDocument(*d)){Notify(*d,CHPT_RESULT_OK);DestroyWindow(w);} return 0; case ID_CANCEL: Notify(*d,CHPT_RESULT_CANCEL);DestroyWindow(w);return 0;
         default: if(LOWORD(wp)>=ID_COLOR0&&LOWORD(wp)<ID_COLOR0+10){SetColor(d->editor,LOWORD(wp)-ID_COLOR0);return 0;} break; } break;
     case WM_CLOSE: Notify(*d,CHPT_RESULT_CANCEL); DestroyWindow(w); return 0;
-    case WM_DESTROY: RememberPromoWindowRect(w);if(d->font) DeleteObject(d->font);if(d->titleFont)DeleteObject(d->titleFont); { std::lock_guard<std::mutex> lock(gLock); gWindows.erase(w); } return 0;
+    case WM_DESTROY: RememberPromoWindowRect(w);if(d->font) DeleteObject(d->font);if(d->titleFont)DeleteObject(d->titleFont);if(d->iconSmall)DestroyIcon(d->iconSmall);if(d->iconLarge)DestroyIcon(d->iconLarge); { std::lock_guard<std::mutex> lock(gLock); gWindows.erase(w); } return 0;
     }
     return DefWindowProcW(w,msg,wp,lp);
 }

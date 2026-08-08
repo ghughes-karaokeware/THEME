@@ -7,6 +7,7 @@
 - Made native `.PRM` dialogs start in the launching EXE folder, then remember the last successfully used folder per Windows user for later Load/Save operations.
 - Restored a prominent one-line-per-trailer instruction and added persistent window position/size with primary-work-area validation and clamping after display changes.
 - Replaced the reminder's unsupported dash with an ANSI-safe separator and expanded the primary action to `Set Promo-Trailers and Exit` with a drawn green confirmation icon.
+- Widened the primary action to prevent minimum-size clipping and added a custom transparent blue-and-gold megaphone icon for the Promo Designer title bar and task switcher.
 
 ## 2026-08-08
 
