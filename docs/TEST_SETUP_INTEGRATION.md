@@ -18,12 +18,12 @@ Place inside the application's global `MAP`, alongside the generated member modu
 
 ```clarion
      MODULE('CHTheme.dll')
-CHUI_GetAbiVersion       PROCEDURE(),ULONG,PASCAL,RAW,NAME('CHUI_GetAbiVersion')
-CHUI_GetHeaderSize       PROCEDURE(),ULONG,PASCAL,RAW,NAME('CHUI_GetHeaderSize')
-CHUI_GetEntrySize        PROCEDURE(),ULONG,PASCAL,RAW,NAME('CHUI_GetEntrySize')
-CHUI_ValidateDialog      PROCEDURE(*CHUI_DIALOG_HEADER Header,*CHUI_ENTRY_RECORD Entries),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialog')
-CHUI_OpenDialog          PROCEDURE(LONG OwnerHwnd,*CHUI_DIALOG_HEADER Header,*CHUI_ENTRY_RECORD Entries,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
-CHUI_ConsumeCompletion   PROCEDURE(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DialogResult),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
+CHUI_GetAbiVersion(),ULONG,PASCAL,RAW,NAME('CHUI_GetAbiVersion')
+CHUI_GetHeaderSize(),ULONG,PASCAL,RAW,NAME('CHUI_GetHeaderSize')
+CHUI_GetEntrySize(),ULONG,PASCAL,RAW,NAME('CHUI_GetEntrySize')
+CHUI_ValidateDialog(*CHUI_DIALOG_HEADER Header,*CHUI_ENTRY_RECORD Entries),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialog')
+CHUI_OpenDialog(LONG OwnerHwnd,*CHUI_DIALOG_HEADER Header,*CHUI_ENTRY_RECORD Entries,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
+CHUI_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DialogResult),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
      END
 ```
 
