@@ -12,6 +12,7 @@
 - Added an `Advanced Settings...` button after returning from a nested detail panel so the third panel can be reopened without changing the selected page.
 - Replaced the standard white command buttons with DLL-owned dark rounded rendering, including blue primary, secondary, pressed, disabled, and keyboard-focus states.
 - Added 18 built-in CompuHost-oriented icon equates, reused the reserved entry-number slot as ABI-compatible `IconID`, and added scalable theme-colored icon rendering to category and page navigation.
+- Made a hidden nested panel's launcher use that panel's full caption and `IconID`, with a 230-pixel layout that displays `Device Advanced Settings` without truncation.
 - Rebuilt Win32 Release with zero warnings and zero errors and passed the 32-bit ABI/validation/round-trip harness.
 
 ## 2026-08-06

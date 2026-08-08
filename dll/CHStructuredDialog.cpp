@@ -349,7 +349,7 @@ bool IsCommandButton(int id)
         id == kDetailButtonId;
 }
 
-void DrawCommandButton(const DRAWITEMSTRUCT& item)
+void DrawCommandButton(DialogData& data, const DRAWITEMSTRUCT& item)
 {
     const bool disabled = (item.itemState & ODS_DISABLED) != 0;
     const bool pressed = (item.itemState & ODS_SELECTED) != 0;
@@ -372,13 +372,29 @@ void DrawCommandButton(const DRAWITEMSTRUCT& item)
     DeleteObject(pen);
     DeleteObject(brush);
 
+    DWORD iconId = CHUI_ICON_NONE;
+    if (item.CtlID == kDetailButtonId) {
+        RuntimeEntry* detail = FindEntry(data, data.selectedDetail);
+        if (detail) iconId = detail->definition.iconId;
+    }
+    if (iconId) {
+        RECT iconRect = bounds;
+        iconRect.left += 12;
+        iconRect.right = iconRect.left + 18;
+        iconRect.top += 5;
+        iconRect.bottom = iconRect.top + 18;
+        DrawBuiltInIcon(item.hDC, iconRect, iconId, text);
+        bounds.left += 34;
+    }
+
     wchar_t caption[128]{};
     GetWindowTextW(item.hwndItem, caption, static_cast<int>(std::size(caption)));
     SetBkMode(item.hDC, TRANSPARENT);
     SetTextColor(item.hDC, text);
     if (pressed) OffsetRect(&bounds, 1, 1);
     DrawTextW(item.hDC, caption, -1, &bounds,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        (iconId ? DT_LEFT : DT_CENTER) | DT_VCENTER | DT_SINGLELINE |
+        DT_END_ELLIPSIS);
     if ((item.itemState & ODS_FOCUS) && !disabled) {
         InflateRect(&bounds, -4, -4);
         DrawFocusRect(item.hDC, &bounds);
@@ -614,7 +630,10 @@ void Render(DialogData& data)
     for (size_t index : pageChildren)
         AddValueControl(data, data.entries[index], y, 474, 350, pageLabelWidth);
     HWND detailButton = GetDlgItem(data.window, kDetailButtonId);
-    SetWindowPos(detailButton, nullptr, 474, y + 4, 150, 28,
+    RuntimeEntry* availableDetail = FindEntry(data, data.selectedDetail);
+    if (availableDetail) SetWindowTextW(detailButton,
+        Utf8ToWide(availableDetail->definition.caption).c_str());
+    SetWindowPos(detailButton, nullptr, 474, y + 4, 230, 28,
         SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(detailButton, data.selectedDetail && data.detailSuppressed
         ? SW_SHOWNA : SW_HIDE);
@@ -818,7 +837,7 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         }
         if (item && item->CtlType == ODT_BUTTON &&
             IsCommandButton(static_cast<int>(item->CtlID))) {
-            DrawCommandButton(*item);
+            DrawCommandButton(*data, *item);
             return TRUE;
         }
         break;

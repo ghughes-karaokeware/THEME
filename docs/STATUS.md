@@ -39,6 +39,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - After using Back from a nested detail panel, the selected page exposes an `Advanced Settings...` button that reopens that same third panel.
 - The four DLL-managed command buttons use dark owner-drawn styling with a blue primary OK action and explicit pressed, disabled, and focus states.
 - Category and page records accept 18 built-in CompuHost-oriented `IconID` equates. The DLL renders their scalable monochrome glyphs using the active navigation colors without changing ABI version or record size.
+- Nested-panel launchers inherit the target panel's caption and built-in icon, so the second-panel action and third-panel destination remain visually connected.
 - Win32 Release and the 32-bit ABI/round-trip harness both pass after the visual-refinement changes.
 
 ## Known build caveat
