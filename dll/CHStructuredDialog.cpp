@@ -708,17 +708,47 @@ void Render(DialogData& data)
     data.selectedDetail = details.empty() ? 0 : data.entries[details.front()].definition.id;
     const bool hasDetail = data.selectedDetail != 0 && !data.detailSuppressed;
 
+    RECT client{};
+    GetClientRect(data.window, &client);
+    if (hasDetail && client.right < 1100) {
+        RECT windowBounds{};
+        GetWindowRect(data.window, &windowBounds);
+        SetWindowPos(data.window, nullptr, 0, 0, 1220,
+            windowBounds.bottom - windowBounds.top,
+            SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        GetClientRect(data.window, &client);
+    }
+    const int clientWidth = std::max(850, static_cast<int>(client.right));
+    const int clientHeight = std::max(500, static_cast<int>(client.bottom));
+    const int panelBottom = clientHeight - 74;
+    const int navigationHeight = std::max(180, panelBottom - 48);
+    SetWindowPos(data.categories, nullptr, 18, 48, 220, navigationHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(data.pages, nullptr, 254, 48, 202, navigationHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE);
+
+    constexpr int contentLeft = 466;
+    const int availableWidth = std::max(360, clientWidth - contentLeft - 14);
+    const int contentWidth = hasDetail
+        ? std::max(300, (availableWidth - 8) / 2) : availableWidth;
+    const int detailLeft = contentLeft + contentWidth + 8;
+    const int detailWidth = std::max(300, clientWidth - detailLeft - 14);
+
     const auto pageChildren = data.selectedPage
         ? Children(data, data.selectedPage, false) : std::vector<size_t>{};
-    const int pageLabelWidth = LabelWidth(data, pageChildren, 158, 350);
+    const int pageControlWidth = std::max(280, contentWidth - 16);
+    const int pageLabelWidth = LabelWidth(data, pageChildren, 158,
+        pageControlWidth);
     int y = 82;
     for (size_t index : pageChildren)
-        AddValueControl(data, data.entries[index], y, 474, 350, pageLabelWidth);
+        AddValueControl(data, data.entries[index], y, contentLeft + 8,
+            pageControlWidth, pageLabelWidth);
     HWND detailButton = GetDlgItem(data.window, kDetailButtonId);
     RuntimeEntry* availableDetail = FindEntry(data, data.selectedDetail);
     if (availableDetail) SetWindowTextW(detailButton,
         Utf8ToWide(availableDetail->definition.caption).c_str());
-    SetWindowPos(detailButton, nullptr, 474, y + 4, 230, 28,
+    SetWindowPos(detailButton, nullptr, contentLeft + 8, y + 4,
+        std::min(230, pageControlWidth), 28,
         SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(detailButton, data.selectedDetail && data.detailSuppressed
         ? SW_SHOWNA : SW_HIDE);
@@ -728,24 +758,27 @@ void Render(DialogData& data)
             const std::wstring heading = L"Advanced - " +
                 Utf8ToWide(detail->definition.caption);
             AddWindow(data, 0, L"STATIC", heading.c_str(), SS_LEFT,
-                842, 48, 336, 24, kFirstDynamicId + 550);
+                detailLeft + 8, 48, detailWidth - 16, 24,
+                kFirstDynamicId + 550);
         }
         const auto detailChildren = Children(data, data.selectedDetail, false);
-        const int detailLabelWidth = LabelWidth(data, detailChildren, 138, 340);
+        const int detailControlWidth = std::max(280, detailWidth - 16);
+        const int detailLabelWidth = LabelWidth(data, detailChildren, 138,
+            detailControlWidth);
         y = 82;
         for (size_t index : detailChildren)
-            AddValueControl(data, data.entries[index], y, 842, 340,
+            AddValueControl(data, data.entries[index], y, detailLeft + 8,
+                detailControlWidth,
                 detailLabelWidth);
     }
-    SetWindowPos(data.window, nullptr, 0, 0, hasDetail ? 1220 : 850, 590,
-        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    const int buttonOffset = hasDetail ? 370 : 0;
-    SetWindowPos(GetDlgItem(data.window, IDOK), nullptr, 674 + buttonOffset, 500,
+    const int buttonY = clientHeight - 60;
+    SetWindowPos(GetDlgItem(data.window, IDOK), nullptr, clientWidth - 176, buttonY,
         76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
-    SetWindowPos(GetDlgItem(data.window, IDCANCEL), nullptr, 758 + buttonOffset, 500,
+    SetWindowPos(GetDlgItem(data.window, IDCANCEL), nullptr, clientWidth - 92,
+        buttonY,
         76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
     HWND back = GetDlgItem(data.window, kBackButtonId);
-    SetWindowPos(back, nullptr, 842, 500, 76, 30,
+    SetWindowPos(back, nullptr, detailLeft + 8, buttonY, 76, 30,
         SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(back, hasDetail ? SW_SHOWNA : SW_HIDE);
     data.rendering = false;
@@ -950,6 +983,16 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             ApplyDependencies(*data);
         }
         return 0;
+    case WM_SIZE:
+        if (!data->rendering && data->font) Render(*data);
+        return 0;
+    case WM_GETMINMAXINFO: {
+        auto* limits = reinterpret_cast<MINMAXINFO*>(lParam);
+        limits->ptMinTrackSize.x = data->selectedDetail && !data->detailSuppressed
+            ? 1100 : 850;
+        limits->ptMinTrackSize.y = 500;
+        return 0;
+    }
     case WM_DRAWITEM: {
         const auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
         if (item && item->CtlType == ODT_LISTBOX &&
@@ -1001,17 +1044,23 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         GetClientRect(window, &client);
         HDC dc = reinterpret_cast<HDC>(wParam);
         FillRect(dc, &client, data->backgroundBrush);
-        const RECT categoryPanel{ 14, 40, 242, 486 };
-        const RECT pagePanel{ 250, 40, 462, 486 };
-        const RECT contentPanel{ 466, 40, 832, 486 };
+        const int panelBottom = std::max(426L, client.bottom - 74);
+        const bool hasDetail = data->selectedDetail && !data->detailSuppressed;
+        const int availableWidth = std::max(360L, client.right - 466 - 14);
+        const int contentWidth = hasDetail
+            ? std::max(300, (availableWidth - 8) / 2) : availableWidth;
+        const int detailLeft = 466 + contentWidth + 8;
+        const RECT categoryPanel{ 14, 40, 242, panelBottom };
+        const RECT pagePanel{ 250, 40, 462, panelBottom };
+        const RECT contentPanel{ 466, 40, 466 + contentWidth, panelBottom };
         FillRect(dc, &categoryPanel, data->surfaceBrush);
         FillRect(dc, &pagePanel, data->surfaceBrush);
         FillRect(dc, &contentPanel, data->surfaceBrush);
         FrameRect(dc, &categoryPanel, data->borderBrush);
         FrameRect(dc, &pagePanel, data->borderBrush);
         FrameRect(dc, &contentPanel, data->borderBrush);
-        if (client.right > 900) {
-            const RECT detailPanel{ 834, 40, client.right - 14, 486 };
+        if (hasDetail) {
+            const RECT detailPanel{ detailLeft, 40, client.right - 14, panelBottom };
             FillRect(dc, &detailPanel, data->surfaceBrush);
             FrameRect(dc, &detailPanel, data->borderBrush);
         }
@@ -1105,7 +1154,8 @@ LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
         GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         reinterpret_cast<LPCWSTR>(&DialogProc), &module);
     HWND window = CreateWindowExW(WS_EX_APPWINDOW, kDialogClass, data->title.c_str(),
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
+        WS_MAXIMIZEBOX | WS_THICKFRAME,
         CW_USEDEFAULT, CW_USEDEFAULT, 850, 590, ownerWindow, nullptr, module, data);
     if (!window) {
         delete data;

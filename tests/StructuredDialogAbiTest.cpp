@@ -94,6 +94,18 @@ int main(int argc, char** argv)
     if (cancelInstance <= 0) return 10;
     HWND dialog = FindWindowW(L"CHTheme.StructuredDialog", L"ABI test");
     if (!dialog) return 11;
+    const LONG_PTR style = GetWindowLongPtrW(dialog, GWL_STYLE);
+    if (!(style & WS_THICKFRAME) || !(style & WS_MAXIMIZEBOX)) return 19;
+    RECT beforeResize{};
+    GetWindowRect(dialog, &beforeResize);
+    SetWindowPos(dialog, nullptr, 0, 0,
+        (beforeResize.right - beforeResize.left) + 180,
+        (beforeResize.bottom - beforeResize.top) + 100,
+        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    RECT afterResize{};
+    GetWindowRect(dialog, &afterResize);
+    if (afterResize.right - afterResize.left <=
+        beforeResize.right - beforeResize.left) return 20;
     SendMessageW(dialog, WM_CLOSE, 0, 0);
     DWORD completedInstance = 0;
     LONG result = -1;
