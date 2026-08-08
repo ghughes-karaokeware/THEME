@@ -342,6 +342,10 @@ through the entry's ordinary `Value`. Font face, Bold, Italic, Underline, color,
 and preview are handled in that single popup and returned in one transaction.
 The CDE-compatible font bits are `0001H`, `0002H`, and `0004H`; existing
 alignment and shadow bits are preserved when the popup changes font attributes.
+Set a font entry's `DependencyID` to the associated text entry ID while leaving
+`DependencyOperator` as `CHUI_DEPEND_NONE`; the renderer then places a compact
+`FONT...` button on that text entry's row. Without that association, the font
+selector renders as an ordinary labeled settings row.
 
 ## 10. Host-window close protection
 

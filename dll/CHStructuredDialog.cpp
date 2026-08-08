@@ -1201,6 +1201,29 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
         if (entry.definition.type == CHUI_CHECKBOX)
             SetWindowSubclass(entry.control, ModernCheckboxProc, 1, 0);
     } else {
+        if (entry.definition.type == CHUI_FONT && entry.definition.dependencyId) {
+            RuntimeEntry* linked = FindEntry(data, entry.definition.dependencyId);
+            if (linked && IsWindow(linked->control)) {
+                RECT linkedBounds{};
+                GetWindowRect(linked->control, &linkedBounds);
+                MapWindowPoints(nullptr, data.window,
+                    reinterpret_cast<POINT*>(&linkedBounds), 2);
+                const int buttonWidth = 82;
+                const int gap = 6;
+                const int linkedWidth = std::max(60, static_cast<int>(
+                    linkedBounds.right - linkedBounds.left - buttonWidth - gap));
+                SetWindowPos(linked->control, nullptr, linkedBounds.left,
+                    linkedBounds.top, linkedWidth,
+                    linkedBounds.bottom - linkedBounds.top,
+                    SWP_NOZORDER | SWP_NOACTIVATE);
+                entry.control = AddWindow(data, 0, L"BUTTON", L"FONT...",
+                    WS_TABSTOP | BS_OWNERDRAW,
+                    linkedBounds.left + linkedWidth + gap, linkedBounds.top,
+                    buttonWidth, linkedBounds.bottom - linkedBounds.top, id);
+                data.byControlId[id] = entry.sourceIndex;
+                return;
+            }
+        }
         AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT,
             left, y + 5, labelWidth - 8, 24, id + 600);
         if (entry.definition.type == CHUI_COLOR) {

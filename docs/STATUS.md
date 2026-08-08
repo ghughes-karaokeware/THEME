@@ -57,6 +57,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - All DLL-created interactive controls now participate in explicit modeless keyboard routing: Tab and Shift+Tab move through the dialog, Escape cancels (or first closes an open dropdown), and Enter accepts from edit/slider fields while native buttons, lists, combos, and checkboxes retain their normal keys.
 - `CHUI_FILE` and `CHUI_FOLDER` entries render an integrated read-only path field and themed Browse button, use the Windows `IFileDialog` selector, and transact through their ordinary 4,096-byte `DialogEntries[].Value`. They use the same `CHUI_ValidateDialog` and `CHUI_OpenDialog` APIs as all other entries.
 - `CHUI_FONT` opens a conventional Windows font popup with installed faces, style selection, integrated color, and populated preview while omitting font size. Its `Face name|style mask|color` value directly preserves CDE style flags outside Bold/Italic/Underline, and remains transactional under Apply/OK/Cancel.
+- Font entries can associate with an existing text entry by ID and render as an inline `FONT...` button on the same row, allowing a compact selector for every CompuHost heading without separate color rows.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat
