@@ -7,6 +7,7 @@
 - Extended the ABI harness to validate color-entry records and rebuilt Win32 Release with zero warnings and zero errors.
 - Re-normalized `CHStructuredDialogTypes.inc` to ASCII CRLF after adding the color equate and verified zero bare linefeeds in both the repository and staged Test_Setup copies.
 - Added opt-in `CHUI_FLAG_LIVE_NOTIFY` entries and the `CHUI_ConsumeChange` export so selected controls can trigger distinguishable Clarion events for real-time preview without making every setting live.
+- Guarded rendering when a category has no selected page, preventing a root category from being misidentified as an empty advanced/detail panel.
 - Verified the Structured Dialog proof of concept from Clarion in both two-panel and three-panel configurations.
 - Preserved ABI version `00010000H` and all existing Clarion integration declarations.
 - Enabled Windows dark styling for the native title bar and child controls.

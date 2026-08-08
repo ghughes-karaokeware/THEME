@@ -703,11 +703,13 @@ void Render(DialogData& data)
 {
     data.rendering = true;
     ClearDynamic(data);
-    const auto details = Children(data, data.selectedPage, true);
+    const auto details = data.selectedPage
+        ? Children(data, data.selectedPage, true) : std::vector<size_t>{};
     data.selectedDetail = details.empty() ? 0 : data.entries[details.front()].definition.id;
     const bool hasDetail = data.selectedDetail != 0 && !data.detailSuppressed;
 
-    const auto pageChildren = Children(data, data.selectedPage, false);
+    const auto pageChildren = data.selectedPage
+        ? Children(data, data.selectedPage, false) : std::vector<size_t>{};
     const int pageLabelWidth = LabelWidth(data, pageChildren, 158, 350);
     int y = 82;
     for (size_t index : pageChildren)
