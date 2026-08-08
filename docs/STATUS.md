@@ -48,6 +48,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - The structured setup window is resizable and maximizable. Navigation, content/detail cards, dynamic controls, and command buttons follow the client area, with separate practical minimum widths for two- and three-panel views.
 - Minimum-height footer placement now uses the real client rectangle, keeping OK and Cancel fully visible. `CHUI_DROPDOWN` uses a rounded, shaded DLL-owned selector face with ellipsis, focus, pressed, disabled, and current-selection states.
 - `CHUI_DROPDOWN` is again a true owner-drawn combo/drop-list rather than a context menu. Category/page selections use inset rounded and shaded cards, with optional `HelpText` rendered as the target-style subtitle.
+- Closed dropdown faces now receive complete DLL-owned dark rounded painting, including focus border, selected caption, and chevron. Checkboxes retain native input behavior while using compact rounded blue theme glyphs and matching focus/disabled text.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

@@ -523,6 +523,147 @@ bool ChooseEntryColor(DialogData& data, RuntimeEntry& entry)
     return true;
 }
 
+void PaintModernCombo(HWND control, HDC dc)
+{
+    RECT bounds{};
+    GetClientRect(control, &bounds);
+    const bool enabled = IsWindowEnabled(control) != FALSE;
+    const bool focused = GetFocus() == control;
+    HBRUSH brush = CreateSolidBrush(enabled ? RGB(18, 34, 49) : RGB(20, 31, 42));
+    HPEN pen = CreatePen(PS_SOLID, 1,
+        focused ? RGB(31, 132, 239) : RGB(55, 78, 98));
+    HGDIOBJ oldBrush = SelectObject(dc, brush);
+    HGDIOBJ oldPen = SelectObject(dc, pen);
+    RoundRect(dc, bounds.left, bounds.top, bounds.right, bounds.bottom, 6, 6);
+    SelectObject(dc, oldPen);
+    SelectObject(dc, oldBrush);
+    DeleteObject(pen);
+    DeleteObject(brush);
+
+    wchar_t caption[512]{};
+    const int selected = static_cast<int>(SendMessageW(control, CB_GETCURSEL, 0, 0));
+    if (selected >= 0)
+        SendMessageW(control, CB_GETLBTEXT, selected,
+            reinterpret_cast<LPARAM>(caption));
+    RECT text = bounds;
+    text.left += 10;
+    text.right -= 31;
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, enabled ? RGB(235, 241, 248) : RGB(113, 128, 142));
+    DrawTextW(dc, caption, -1, &text,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+    const int centerX = bounds.right - 16;
+    const int centerY = (bounds.top + bounds.bottom) / 2;
+    HPEN arrow = CreatePen(PS_SOLID, 2,
+        enabled ? RGB(205, 220, 233) : RGB(95, 109, 122));
+    HGDIOBJ oldArrow = SelectObject(dc, arrow);
+    MoveToEx(dc, centerX - 4, centerY - 2, nullptr);
+    LineTo(dc, centerX, centerY + 2);
+    LineTo(dc, centerX + 4, centerY - 2);
+    SelectObject(dc, oldArrow);
+    DeleteObject(arrow);
+}
+
+LRESULT CALLBACK ModernComboProc(HWND control, UINT message,
+    WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR)
+{
+    switch (message) {
+    case WM_PAINT: {
+        PAINTSTRUCT paint{};
+        HDC dc = BeginPaint(control, &paint);
+        PaintModernCombo(control, dc);
+        EndPaint(control, &paint);
+        return 0;
+    }
+    case WM_SETFOCUS:
+    case WM_KILLFOCUS:
+    case WM_ENABLE:
+        InvalidateRect(control, nullptr, TRUE);
+        break;
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(control, ModernComboProc, 1);
+        break;
+    }
+    return DefSubclassProc(control, message, wParam, lParam);
+}
+
+void PaintModernCheckbox(HWND control, HDC dc)
+{
+    RECT bounds{};
+    GetClientRect(control, &bounds);
+    const bool enabled = IsWindowEnabled(control) != FALSE;
+    const bool checked = SendMessageW(control, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    HBRUSH background = CreateSolidBrush(RGB(13, 27, 40));
+    FillRect(dc, &bounds, background);
+    DeleteObject(background);
+
+    RECT box{ 1, (bounds.bottom - 16) / 2, 17, (bounds.bottom - 16) / 2 + 16 };
+    HBRUSH boxBrush = CreateSolidBrush(checked
+        ? (enabled ? RGB(10, 105, 215) : RGB(40, 67, 93)) : RGB(15, 29, 42));
+    HPEN boxPen = CreatePen(PS_SOLID, 1,
+        enabled ? (checked ? RGB(45, 143, 245) : RGB(68, 91, 111)) : RGB(48, 61, 74));
+    HGDIOBJ oldBrush = SelectObject(dc, boxBrush);
+    HGDIOBJ oldPen = SelectObject(dc, boxPen);
+    RoundRect(dc, box.left, box.top, box.right, box.bottom, 4, 4);
+    SelectObject(dc, oldPen);
+    SelectObject(dc, oldBrush);
+    DeleteObject(boxPen);
+    DeleteObject(boxBrush);
+    if (checked) {
+        HPEN checkPen = CreatePen(PS_SOLID, 2,
+            enabled ? RGB(255, 255, 255) : RGB(144, 157, 169));
+        HGDIOBJ oldCheck = SelectObject(dc, checkPen);
+        MoveToEx(dc, box.left + 4, box.top + 8, nullptr);
+        LineTo(dc, box.left + 7, box.top + 11);
+        LineTo(dc, box.left + 13, box.top + 5);
+        SelectObject(dc, oldCheck);
+        DeleteObject(checkPen);
+    }
+
+    wchar_t caption[512]{};
+    GetWindowTextW(control, caption, static_cast<int>(std::size(caption)));
+    RECT text = bounds;
+    text.left = 25;
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, enabled ? RGB(235, 241, 248) : RGB(113, 128, 142));
+    DrawTextW(dc, caption, -1, &text,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    if (GetFocus() == control) {
+        RECT focus = text;
+        InflateRect(&focus, -1, -3);
+        DrawFocusRect(dc, &focus);
+    }
+}
+
+LRESULT CALLBACK ModernCheckboxProc(HWND control, UINT message,
+    WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR)
+{
+    switch (message) {
+    case WM_PAINT: {
+        PAINTSTRUCT paint{};
+        HDC dc = BeginPaint(control, &paint);
+        PaintModernCheckbox(control, dc);
+        EndPaint(control, &paint);
+        return 0;
+    }
+    case BM_SETCHECK: {
+        const LRESULT result = DefSubclassProc(control, message, wParam, lParam);
+        InvalidateRect(control, nullptr, TRUE);
+        return result;
+    }
+    case WM_SETFOCUS:
+    case WM_KILLFOCUS:
+    case WM_ENABLE:
+        InvalidateRect(control, nullptr, TRUE);
+        break;
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(control, ModernCheckboxProc, 1);
+        break;
+    }
+    return DefSubclassProc(control, message, wParam, lParam);
+}
+
 HWND AddWindow(DialogData& data, DWORD exStyle, const wchar_t* className,
     const wchar_t* caption, DWORD style, int x, int y, int width, int height, int id)
 {
@@ -719,6 +860,8 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
             WS_TABSTOP | style, left, y, width - 18, 24, id);
         SendMessageW(entry.control, BM_SETCHECK,
             entry.workingValue == "1" ? BST_CHECKED : BST_UNCHECKED, 0);
+        if (entry.definition.type == CHUI_CHECKBOX)
+            SetWindowSubclass(entry.control, ModernCheckboxProc, 1, 0);
     } else {
         AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT,
             left, y + 5, labelWidth - 8, 24, id + 600);
@@ -741,6 +884,7 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
             SendMessageW(entry.control, CB_SETCURSEL, selected, 0);
             SendMessageW(entry.control, CB_SETITEMHEIGHT, static_cast<WPARAM>(-1), 24);
             SendMessageW(entry.control, CB_SETITEMHEIGHT, 0, 24);
+            SetWindowSubclass(entry.control, ModernComboProc, 1, 0);
         } else if (entry.definition.type == CHUI_SLIDER) {
             entry.control = AddWindow(data, 0, TRACKBAR_CLASSW, L"",
                 WS_TABSTOP | TBS_HORZ | TBS_NOTICKS,
