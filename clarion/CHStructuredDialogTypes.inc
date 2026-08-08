@@ -13,6 +13,7 @@ CHUI_SLIDER               EQUATE(15)
 CHUI_COLOR                EQUATE(16)
 CHUI_FILE                 EQUATE(17)
 CHUI_FOLDER               EQUATE(18)
+CHUI_FONT                 EQUATE(19)
 CHUI_ACTION               EQUATE(20)
 
 CHUI_RESULT_CANCEL        EQUATE(0)

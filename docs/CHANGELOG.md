@@ -2,6 +2,9 @@
 
 ## 2026-08-08
 
+- Added `CHUI_FONT`, a single familiar Windows font popup that selects the installed font face plus Bold, Italic, and Underline attributes while hiding and disabling font-size selection.
+- Defined the font value as `Face name|CDE style mask`; the popup updates only CDE font bits `0001H`, `0002H`, and `0004H`, preserving alignment, shadow, and future non-font style bits.
+- Extended the Win32 ABI harness to validate and round-trip a font selection through Apply and Cancel; Win32 Release builds with zero warnings and errors.
 - Added integrated `CHUI_FILE` and `CHUI_FOLDER` controls with a read-only path display, themed Browse button, modern Windows file/folder picker, and FILE filter definitions.
 - Advanced the structured-dialog ABI to `00020000H` and enlarged every entry's single `Value` field to 4,096 bytes, allowing FILE/FOLDER settings to use the same declaration, validation, open, Apply, and OK flow as every other setting.
 - Implemented transactional path defaults, Reset All, dirty detection, Apply/OK write-back, and Cancel-to-last-Apply behavior.

@@ -2,6 +2,7 @@
 
 #include <commctrl.h>
 #include <commdlg.h>
+#include <dlgs.h>
 #include <dwmapi.h>
 #include <shobjidl.h>
 #include <uxtheme.h>
@@ -144,7 +145,7 @@ std::vector<Option> ParseOptions(const char* definition)
 
 bool IsValueType(DWORD type)
 {
-    return type >= CHUI_ENTRY && type <= CHUI_FOLDER;
+    return type >= CHUI_ENTRY && type <= CHUI_FONT;
 }
 
 bool IsEntryType(DWORD type)
@@ -554,6 +555,84 @@ bool ChooseEntryColor(DialogData& data, RuntimeEntry& entry)
     return true;
 }
 
+constexpr unsigned long kFontBold = 0x0001;
+constexpr unsigned long kFontItalic = 0x0002;
+constexpr unsigned long kFontUnderline = 0x0004;
+
+bool ParseFontValue(const std::string& value, std::string& face,
+    unsigned long& style)
+{
+    const size_t separator = value.rfind('|');
+    if (separator == std::string::npos || !separator ||
+        separator + 1 >= value.size()) return false;
+    face = value.substr(0, separator);
+    style = 0;
+    const auto parsed = std::from_chars(value.data() + separator + 1,
+        value.data() + value.size(), style);
+    return parsed.ec == std::errc{} && parsed.ptr == value.data() + value.size();
+}
+
+std::wstring FontButtonCaption(const std::string& value)
+{
+    std::string face;
+    unsigned long style = 0;
+    if (!ParseFontValue(value, face, style)) return L"Choose font...";
+    std::wstring caption = Utf8ToWide(face.c_str());
+    if (style & kFontBold) caption += L" - Bold";
+    if (style & kFontItalic) caption += L" - Italic";
+    if (style & kFontUnderline) caption += L" - Underline";
+    return caption;
+}
+
+UINT_PTR CALLBACK FontDialogHook(HWND dialog, UINT message, WPARAM, LPARAM)
+{
+    if (message == WM_INITDIALOG) {
+        ShowWindow(GetDlgItem(dialog, stc3), SW_HIDE);
+        ShowWindow(GetDlgItem(dialog, cmb3), SW_HIDE);
+    }
+    return 0;
+}
+
+bool ChooseEntryFont(DialogData& data, RuntimeEntry& entry)
+{
+    std::string face;
+    unsigned long style = 0;
+    if (!ParseFontValue(entry.workingValue, face, style)) {
+        face = entry.workingValue.empty() ? "Segoe UI" : entry.workingValue;
+        style = 0;
+    }
+
+    LOGFONTW selected{};
+    const std::wstring wideFace = Utf8ToWide(face.c_str());
+    wcsncpy_s(selected.lfFaceName, wideFace.c_str(), _TRUNCATE);
+    selected.lfHeight = -60;
+    selected.lfWeight = (style & kFontBold) ? FW_BOLD : FW_NORMAL;
+    selected.lfItalic = (style & kFontItalic) ? TRUE : FALSE;
+    selected.lfUnderline = (style & kFontUnderline) ? TRUE : FALSE;
+
+    CHOOSEFONTW picker{ sizeof(picker) };
+    picker.hwndOwner = data.window;
+    picker.lpLogFont = &selected;
+    picker.iPointSize = 600;
+    picker.Flags = CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT |
+        CF_ENABLEHOOK | CF_NOSIZESEL;
+    picker.lpfnHook = FontDialogHook;
+    if (!ChooseFontW(&picker)) return false;
+
+    const unsigned long preserved = style &
+        ~(kFontBold | kFontItalic | kFontUnderline);
+    style = preserved;
+    if (selected.lfWeight >= FW_BOLD) style |= kFontBold;
+    if (selected.lfItalic) style |= kFontItalic;
+    if (selected.lfUnderline) style |= kFontUnderline;
+    entry.workingValue = WideToUtf8(selected.lfFaceName) + "|" +
+        std::to_string(style);
+    SetWindowTextW(entry.control,
+        FontButtonCaption(entry.workingValue).c_str());
+    InvalidateRect(entry.control, nullptr, TRUE);
+    return true;
+}
+
 bool ChooseEntryPath(DialogData& data, RuntimeEntry& entry)
 {
     const HRESULT initialized = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
@@ -946,6 +1025,7 @@ void ReadControl(RuntimeEntry& entry)
     case CHUI_COLOR:
     case CHUI_FILE:
     case CHUI_FOLDER:
+    case CHUI_FONT:
         break;
     case CHUI_DROPDOWN: {
         const int selected = static_cast<int>(SendMessageW(entry.control,
@@ -1111,6 +1191,10 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
             left, y + 5, labelWidth - 8, 24, id + 600);
         if (entry.definition.type == CHUI_COLOR) {
             entry.control = AddWindow(data, 0, L"BUTTON", L"Choose...",
+                WS_TABSTOP | BS_OWNERDRAW, controlX, y, controlWidth, 26, id);
+        } else if (entry.definition.type == CHUI_FONT) {
+            const std::wstring fontCaption = FontButtonCaption(entry.workingValue);
+            entry.control = AddWindow(data, 0, L"BUTTON", fontCaption.c_str(),
                 WS_TABSTOP | BS_OWNERDRAW, controlX, y, controlWidth, 26, id);
         } else if (entry.definition.type == CHUI_FILE ||
             entry.definition.type == CHUI_FOLDER) {
@@ -1282,6 +1366,15 @@ bool ValidateWorkingValues(DialogData& data)
                 parsed.ptr != entry.workingValue.data() + entry.workingValue.size() ||
                 color > 0x00FFFFFFUL) {
                 MessageBoxW(data.window, L"A color value is invalid.",
+                    data.title.c_str(), MB_OK | MB_ICONWARNING);
+                return false;
+            }
+        }
+        if (entry.definition.type == CHUI_FONT) {
+            std::string face;
+            unsigned long style = 0;
+            if (!ParseFontValue(entry.workingValue, face, style) || face.empty()) {
+                MessageBoxW(data.window, L"A font selection is invalid.",
                     data.title.c_str(), MB_OK | MB_ICONWARNING);
                 return false;
             }
@@ -1523,6 +1616,14 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         if (!data->rendering && dynamic != data->byControlId.end() &&
             notification == BN_CLICKED) {
             RuntimeEntry& entry = data->entries[dynamic->second];
+            if (entry.definition.type == CHUI_FONT) {
+                if (ChooseEntryFont(*data, entry)) {
+                    NotifyLiveChange(*data, entry);
+                    UpdateApplyButton(*data);
+                }
+                ApplyDependencies(*data);
+                return 0;
+            }
             if (entry.definition.type == CHUI_COLOR) {
                 if (ChooseEntryColor(*data, entry)) {
                     NotifyLiveChange(*data, entry);
@@ -1591,7 +1692,8 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                 }
                 if (entry.definition.type == CHUI_ACTION ||
                     entry.definition.type == CHUI_FILE ||
-                    entry.definition.type == CHUI_FOLDER) {
+                    entry.definition.type == CHUI_FOLDER ||
+                    entry.definition.type == CHUI_FONT) {
                     DrawCommandButton(*data, *item);
                     return TRUE;
                 }

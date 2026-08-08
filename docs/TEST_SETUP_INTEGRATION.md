@@ -336,6 +336,13 @@ working copy immediately. The applicable `DialogEntries[].Value` is written only
 Cancel restores the value accepted by the most recent Apply. FILE options use
 `pattern=caption` pairs separated by `|`, as shown above.
 
+`CHUI_FONT` renders one themed selector button and opens a familiar Windows
+font popup. The DLL hides font size and returns `Face name|style mask` through
+the entry's ordinary `Value`. Bold, Italic, and Underline use the CDE-compatible
+bits `0001H`, `0002H`, and `0004H`; existing alignment and shadow bits are
+preserved when the popup changes the font attributes. Pair it with a separate
+`CHUI_COLOR` entry when configuring `CDE_SetBackdropLine`.
+
 ## 10. Host-window close protection
 
 In the Main window `EVENT:CloseWindow` embed, prevent the Clarion-owned memory from disappearing while the modeless native dialog is open:
