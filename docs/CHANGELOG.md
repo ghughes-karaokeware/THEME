@@ -10,6 +10,7 @@
 - Guarded rendering when a category has no selected page, preventing a root category from being misidentified as an empty advanced/detail panel.
 - Made the structured setup window resizable/maximizable, removed forced fixed widths, added responsive two/three-panel layout and minimum tracking sizes, and extended the harness to verify real resizing.
 - Corrected minimum-size footer clipping by positioning against the actual client height, and replaced square native dropdown faces with rounded shaded owner-drawn selectors while preserving the existing dropdown ABI and live notifications.
+- Restored real attached dropdown-list behavior with dark owner-drawn items, and moved the rounded/shaded card treatment to category/page navigation where it appears in the target design; navigation `HelpText` now renders as a subtitle.
 - Verified the Structured Dialog proof of concept from Clarion in both two-panel and three-panel configurations.
 - Preserved ABI version `00010000H` and all existing Clarion integration declarations.
 - Enabled Windows dark styling for the native title bar and child controls.

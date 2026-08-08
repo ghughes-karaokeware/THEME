@@ -47,6 +47,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - Categories with no selected second-level page no longer interpret root categories as third-level detail panels, preventing empty `Advanced - Audio` views.
 - The structured setup window is resizable and maximizable. Navigation, content/detail cards, dynamic controls, and command buttons follow the client area, with separate practical minimum widths for two- and three-panel views.
 - Minimum-height footer placement now uses the real client rectangle, keeping OK and Cancel fully visible. `CHUI_DROPDOWN` uses a rounded, shaded DLL-owned selector face with ellipsis, focus, pressed, disabled, and current-selection states.
+- `CHUI_DROPDOWN` is again a true owner-drawn combo/drop-list rather than a context menu. Category/page selections use inset rounded and shaded cards, with optional `HelpText` rendered as the target-style subtitle.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat
