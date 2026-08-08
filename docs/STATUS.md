@@ -54,6 +54,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - `CHUI_ACTION` entries render as themed, hover-aware buttons and signal the existing hidden Clarion notification control without closing the dialog or changing its dirty state. `CHUI_ConsumeAction` returns the dialog instance and action entry ID so CompuHost can invoke its existing device, file-management, and advanced-settings procedures.
 - The target-style `Reset All Settings` footer action asks for confirmation, loads every value entry's declared default into the dialog working copy, refreshes dependencies, and participates in normal Apply/OK/Cancel transactions without persisting immediately.
 - `CHUI_SetEntryValue` lets an action handler safely return a bounded UTF-8 value to any value entry in the still-open dialog. The DLL validates dropdown and Boolean replacements, refreshes visible controls and dependencies, and updates the Apply dirty state without prematurely committing caller memory.
+- All DLL-created interactive controls now participate in explicit modeless keyboard routing: Tab and Shift+Tab move through the dialog, Escape cancels (or first closes an open dropdown), and Enter accepts from edit/slider fields while native buttons, lists, combos, and checkboxes retain their normal keys.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

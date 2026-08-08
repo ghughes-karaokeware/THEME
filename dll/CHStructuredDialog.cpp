@@ -741,6 +741,46 @@ LRESULT CALLBACK ButtonHoverProc(HWND control, UINT message,
     return DefSubclassProc(control, message, wParam, lParam);
 }
 
+LRESULT CALLBACK DialogKeyboardProc(HWND control, UINT message,
+    WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR)
+{
+    if (message == WM_KEYDOWN) {
+        HWND parent = GetParent(control);
+        if (wParam == VK_ESCAPE) {
+            wchar_t className[32]{};
+            GetClassNameW(control, className, static_cast<int>(std::size(className)));
+            if (lstrcmpiW(className, WC_COMBOBOXW) == 0 &&
+                SendMessageW(control, CB_GETDROPPEDSTATE, 0, 0)) {
+                SendMessageW(control, CB_SHOWDROPDOWN, FALSE, 0);
+            } else if (IsWindow(parent)) {
+                SendMessageW(parent, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED),
+                    reinterpret_cast<LPARAM>(GetDlgItem(parent, IDCANCEL)));
+            }
+            return 0;
+        }
+        if (wParam == VK_TAB && IsWindow(parent)) {
+            const BOOL previous = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+            HWND next = GetNextDlgTabItem(parent, control, previous);
+            if (IsWindow(next)) SetFocus(next);
+            return 0;
+        }
+        if (wParam == VK_RETURN && IsWindow(parent)) {
+            wchar_t className[32]{};
+            GetClassNameW(control, className, static_cast<int>(std::size(className)));
+            if (lstrcmpiW(className, L"EDIT") == 0 ||
+                lstrcmpiW(className, TRACKBAR_CLASSW) == 0) {
+                HWND ok = GetDlgItem(parent, IDOK);
+                SendMessageW(parent, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED),
+                    reinterpret_cast<LPARAM>(ok));
+                return 0;
+            }
+        }
+    } else if (message == WM_NCDESTROY) {
+        RemoveWindowSubclass(control, DialogKeyboardProc, 1);
+    }
+    return DefSubclassProc(control, message, wParam, lParam);
+}
+
 HWND AddWindow(DialogData& data, DWORD exStyle, const wchar_t* className,
     const wchar_t* caption, DWORD style, int x, int y, int width, int height, int id)
 {
@@ -750,6 +790,7 @@ HWND AddWindow(DialogData& data, DWORD exStyle, const wchar_t* className,
         reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(data.window, GWLP_HINSTANCE)), nullptr);
     SetControlFont(control, data.font);
     if (control) SetWindowTheme(control, L"DarkMode_Explorer", nullptr);
+    if (control) SetWindowSubclass(control, DialogKeyboardProc, 1, 0);
     if (control && lstrcmpW(className, L"BUTTON") == 0 &&
         (style & BS_TYPEMASK) == BS_OWNERDRAW)
         SetWindowSubclass(control, ButtonHoverProc, 1, 0);
@@ -1602,7 +1643,8 @@ LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
     GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
         GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         reinterpret_cast<LPCWSTR>(&DialogProc), &module);
-    HWND window = CreateWindowExW(WS_EX_APPWINDOW, kDialogClass, data->title.c_str(),
+    HWND window = CreateWindowExW(WS_EX_APPWINDOW | WS_EX_CONTROLPARENT,
+        kDialogClass, data->title.c_str(),
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
         WS_MAXIMIZEBOX | WS_THICKFRAME,
         CW_USEDEFAULT, CW_USEDEFAULT, 850, 590, ownerWindow, nullptr, module, data);

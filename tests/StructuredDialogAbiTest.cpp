@@ -122,7 +122,7 @@ int main(int argc, char** argv)
     GetWindowRect(dialog, &afterResize);
     if (afterResize.right - afterResize.left <=
         beforeResize.right - beforeResize.left) return 20;
-    SendMessageW(dialog, WM_CLOSE, 0, 0);
+    SendMessageW(minimumOk, WM_KEYDOWN, VK_ESCAPE, 0);
     DWORD completedInstance = 0;
     LONG result = -1;
     if (!consume(notification, &completedInstance, &result) ||
@@ -185,7 +185,7 @@ int main(int argc, char** argv)
         actionInstanceResult != static_cast<DWORD>(actionInstance) ||
         actionEntry != 111 || !IsWindow(dialog) ||
         consume(notification, &completedInstance, &result)) return 26;
-    SendMessageW(dialog, WM_CLOSE, 0, 0);
+    SendMessageW(actionButton, WM_KEYDOWN, VK_ESCAPE, 0);
     if (!consume(notification, &completedInstance, &result) ||
         completedInstance != static_cast<DWORD>(actionInstance) ||
         result != CHUI_RESULT_CANCEL) return 27;

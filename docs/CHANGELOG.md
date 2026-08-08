@@ -7,6 +7,8 @@
 - Added a themed `Reset All Settings` footer button with confirmation and transactional restoration of declared defaults; Cancel can still discard the reset.
 - Added `CHUI_SetEntryValue` so Clarion action handlers can refresh a value in the open native dialog; inputs are bounded to the ABI field, dropdown/Boolean values are checked, and successful updates participate in Apply/Cancel.
 - Extended the harness to verify live control refresh and rejection of an invalid programmatic Boolean value.
+- Added explicit keyboard routing required by the custom modeless window, including Tab/Shift+Tab traversal, Escape cancellation/dropdown dismissal, and Enter acceptance from text and slider controls.
+- Extended the harness to verify Escape cancellation from both fixed footer buttons and dynamically generated action buttons.
 - Added a themed Apply button that is enabled only while structured-dialog values differ from the last accepted baseline.
 - Apply validates and writes all values, queues `CHUI_RESULT_APPLY` through the existing completion notification, keeps the dialog open, and establishes a new Cancel rollback baseline.
 - Extended the ABI harness to verify the Apply result, caller write-back, persistent dialog window, and disabled clean state.
