@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-08-08 — Promo Trailer Designer release candidate staging
+
+- Rebuilt `CHTheme.dll` Win32 Release with zero warnings and zero errors.
+- Passed Promo markup, Promo ABI, Structured Dialog ABI/round-trip, and modeless Promo Designer transaction regression tests.
+- Staged and hash-verified the identical DLL in all ten established runtime locations.
+- Staged and hash-verified the Promo-capable Clarion import library in all nine established linker locations.
+- Staged the CRLF `CHPromoDesignerTypes.inc` in the Clarion accessory, CompuHost V4, and Test_Setup locations.
+- Documented the CompuHost V4 file-based return contract: preserve `APP`/`NOAPP` tags and do not rebuild the legacy V3 queue.
+- Created the recovery package `CHTheme-Promo-RC-PreDeploy-20260808-134504` with pre-deployment and post-deployment manifests.
+
 - Corrected Promo Designer header/toolbar spacing and removed native owner-draw background/focus artifacts from its modern buttons and color swatches.
 - Added internal `.PRM` Load, Save, and Clear commands plus transactional Auto-load-on-startup flag round-tripping.
 - Redesigned the Promo Designer with a gradient title area, formatting band, bordered editor card, hover-responsive controls, an unclipped Auto-load option, and a balanced footer command bar.

@@ -206,3 +206,19 @@ The staged DLL contains the exports, but the current Clarion-format `CHTheme.lib
 - `PromoDesignerInstance` must be cleared only after consuming the matching completion.
 - The first Load/Save dialog opens in the launching application's folder. After a successful `.PRM` read or write, the DLL remembers that folder per Windows user at `HKCU\Software\Karaokeware\CHTheme\PromoDesigner\LastPrmFolder`; no Clarion path variable is required.
 - The DLL stores the normal window rectangle in the same registry key as `WindowRect`. Each launch constrains it to the current primary desktop work area, preserving position and size without allowing a resolution or monitor change to strand the dialog off-screen.
+
+## 12. CompuHost V4 return processing
+
+CompuHost V4 uses the Promo Designer's file-based `.PRM` workflow. Do not rebuild the legacy CompuHost V3 Promo queue after completion. On `CHPT_RESULT_OK`, copy the complete returned buffer and its Auto-load flag:
+
+```clarion
+AdvertLine = PromoData.Text
+GLO:PromoTrailer = AdvertLine
+PromoAutoload = CHOOSE(BAND(PromoData.Flags,CHPT_FLAG_AUTOLOAD) <> 0,1,0)
+GLO:PromoChanged = 1
+POST(Event:ResetRotationScroller,,ScrollerWindow)
+```
+
+The returned text remains encoded. Preserve `<APP>` and `<NOAPP>` routing tags along with color and attribute tags; do not remove or reinterpret them in the completion callback. In Clarion source literals these appear as `<<APP>` and `<<NOAPP>` because Clarion escapes a literal `<` by doubling it. The runtime strings contain the intended single `<` characters.
+
+Accepting an empty editor is valid and must clear the current Promo-Trailer value. Consequently, the completion path must not be guarded by the legacy `LOC:RTFTempText <> ''` test.

@@ -33,6 +33,10 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 
 ## Promo Trailer Designer proof of concept
 
+- Release candidate rebuilt and staged on 2026-08-08 with zero compiler warnings and zero errors. Promo markup, Promo ABI, Structured Dialog ABI/round-trip, and modeless Promo Designer transaction tests all passed.
+- The identical RC DLL is SHA-256 verified in all ten established runtime locations. The Promo-capable Clarion import library is verified in all nine linker locations, and the CRLF Promo include is verified in the Clarion accessory, CompuHost V4, and Test_Setup locations.
+- CompuHost V4 integration uses the file-based `.PRM` workflow. The return callback preserves `APP`/`NOAPP` and formatting tags and does not rebuild the legacy CompuHost V3 Promo queue.
+- A pre-deployment recovery package and post-deployment verification manifest are stored under `clarion-theme-recovery/outputs/CHTheme-Promo-RC-PreDeploy-20260808-134504`.
 - Added an isolated modeless native Promo Trailer Designer without changing the Structured Setup ABI or implementation.
 - Promo ABI version is `00010000H`; the packed Clarion/C++ data record is 4,256 bytes with a 4,096-byte caller-owned text buffer and caller-selected compatibility limit.
 - The designer parses and visually renders colors 0-9 plus Bold, Italic, and Underline; each physical line is independently reset and serialized as one Promo Trailer.
