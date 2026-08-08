@@ -21,9 +21,14 @@ Updated: 2026-08-07
 
 Structural types: `PANEL`, `GROUP`, `HEADING`, and `SEPARATOR`.
 
-Initial value types: `ENTRY`, `NUMBER`, `DROPDOWN`, `CHECKBOX`, `RADIO`, and `SLIDER`.
+Initial value types were `ENTRY`, `NUMBER`, `DROPDOWN`, `CHECKBOX`, `RADIO`, and `SLIDER`. ABI-compatible additions now include `COLOR`, `FILE`, and `FOLDER`; `ACTION` is non-value behavior.
 
-Reserved type values permit later `PASSWORD`, `FILE`, `FOLDER`, `COLOR`, and `HOTKEY` additions without changing the version-1 record.
+Reserved type values still permit later `PASSWORD` and `HOTKEY` additions without changing the version-1 record.
+
+FILE and FOLDER entries use a separate packed `CHUI_PATH_RECORD` keyed by entry
+ID. Its 4,096-byte current and default buffers avoid the ordinary 128-byte value
+limit without inflating every entry. `CHUI_OpenDialogEx` validates a one-to-one
+mapping, copies paths internally, and writes them back only on Apply or OK.
 
 Each entry contains version/size information, type, ID, parent ID, flags, dependency fields, numeric limits, a built-in icon ID, caption, current value, default value, dropdown options, help text, and reserved bytes. Dropdown options use bounded `stored-value=Display caption` pairs; stored values therefore remain stable when captions change.
 
@@ -64,4 +69,4 @@ Application-variable metadata remains Clarion-only. A later helper may map Entry
 
 ## Deferred beyond the current proof of concept
 
-Search, application-supplied icon registration, file/folder pickers, tables, actual CompuHost globals, and migration of the production Setup dialog. Color selection, callback-free action notifications, and transactional reset-all have since been implemented without changing the version-1 record layout.
+Search, application-supplied icon registration, tables, actual CompuHost globals, and migration of the production Setup dialog. Color/file/folder selection, callback-free action notifications, and transactional reset-all have since been implemented without changing the version-1 entry-record layout.

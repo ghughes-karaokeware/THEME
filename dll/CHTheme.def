@@ -61,8 +61,11 @@ EXPORTS
     CHUI_GetAbiVersion        = _CHUI_GetAbiVersion@0
     CHUI_GetHeaderSize        = _CHUI_GetHeaderSize@0
     CHUI_GetEntrySize         = _CHUI_GetEntrySize@0
+    CHUI_GetPathRecordSize    = _CHUI_GetPathRecordSize@0
     CHUI_ValidateDialog       = _CHUI_ValidateDialog@8
+    CHUI_ValidateDialogEx     = _CHUI_ValidateDialogEx@16
     CHUI_OpenDialog           = _CHUI_OpenDialog@16
+    CHUI_OpenDialogEx         = _CHUI_OpenDialogEx@24
     CHUI_ConsumeCompletion    = _CHUI_ConsumeCompletion@12
     CHUI_ConsumeChange        = _CHUI_ConsumeChange@12
     CHUI_ConsumeAction        = _CHUI_ConsumeAction@12

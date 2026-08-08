@@ -21,8 +21,11 @@ Place inside the application's global `MAP`, alongside the generated member modu
 CHUI_GetAbiVersion(),ULONG,PASCAL,RAW,NAME('CHUI_GetAbiVersion')
 CHUI_GetHeaderSize(),ULONG,PASCAL,RAW,NAME('CHUI_GetHeaderSize')
 CHUI_GetEntrySize(),ULONG,PASCAL,RAW,NAME('CHUI_GetEntrySize')
+CHUI_GetPathRecordSize(),ULONG,PASCAL,RAW,NAME('CHUI_GetPathRecordSize')
 CHUI_ValidateDialog(LONG HeaderAddress,LONG EntriesAddress),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialog')
+CHUI_ValidateDialogEx(LONG HeaderAddress,LONG EntriesAddress,LONG PathsAddress,ULONG PathCount),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialogEx')
 CHUI_OpenDialog(LONG OwnerHwnd,LONG HeaderAddress,LONG EntriesAddress,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
+CHUI_OpenDialogEx(LONG OwnerHwnd,LONG HeaderAddress,LONG EntriesAddress,LONG PathsAddress,ULONG PathCount,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialogEx')
 CHUI_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DialogResult),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
 CHUI_ConsumeChange(LONG CompletionButtonHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeChange')
 CHUI_ConsumeAction(LONG CompletionButtonHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeAction')
@@ -64,7 +67,7 @@ InstanceID                 ULONG
 Title                      CSTRING(128)
 Reserved                   STRING(104)
                          END
-DialogEntries            GROUP,DIM(11)
+DialogEntries            GROUP,DIM(13)
 Type                       ULONG
 ID                         ULONG
 ParentID                   ULONG
@@ -83,6 +86,7 @@ Options                    CSTRING(512)
 HelpText                   CSTRING(256)
 Reserved                   STRING(88)
                          END
+DialogPaths              CHUI_PATH_RECORD,DIM(2)
 DialogInstance           ULONG
 CompletedInstance        ULONG
 DialogResult             LONG
@@ -95,6 +99,8 @@ TestPreviewVolume        LONG(70)
 TestSecondaryOutput      BYTE(1)
 TestSampleRate           CSTRING(32)
 TestExclusiveMode        BYTE(0)
+TestBackgroundImage      CSTRING(CHUI_PATH_CAPACITY)
+TestRecordingFolder      CSTRING(CHUI_PATH_CAPACITY)
 ```
 
 ## 5. Procedure Setup embed
@@ -132,16 +138,24 @@ IF CHUI_GetEntrySize() <> SIZE(DialogEntries[1])
           ' DLL=' & CHUI_GetEntrySize())
   CYCLE
 END
+IF CHUI_GetPathRecordSize() <> SIZE(DialogPaths[1])
+  MESSAGE('Path-record size mismatch. Clarion=' & SIZE(DialogPaths[1]) & |
+          ' DLL=' & CHUI_GetPathRecordSize())
+  CYCLE
+END
 
-DialogStatus = CHUI_ValidateDialog(ADDRESS(DialogHeader),ADDRESS(DialogEntries[1]))
+DialogStatus = CHUI_ValidateDialogEx(ADDRESS(DialogHeader), |
+                                     ADDRESS(DialogEntries[1]), |
+                                     ADDRESS(DialogPaths[1]),2)
 IF DialogStatus <> CHUI_STATUS_OK
   MESSAGE('Structured Dialog validation failed: ' & DialogStatus)
   CYCLE
 END
 
-DialogStatus = CHUI_OpenDialog(0{PROP:Handle},ADDRESS(DialogHeader), |
-                               ADDRESS(DialogEntries[1]), |
-                               ?CHUIComplete{PROP:Handle})
+DialogStatus = CHUI_OpenDialogEx(0{PROP:Handle},ADDRESS(DialogHeader), |
+                                 ADDRESS(DialogEntries[1]), |
+                                 ADDRESS(DialogPaths[1]),2, |
+                                 ?CHUIComplete{PROP:Handle})
 IF DialogStatus > 0
   DialogInstance = DialogStatus
 ELSE
@@ -204,11 +218,12 @@ Place in `Main procedure / Local Routines`:
 PrepareStructuredDialog ROUTINE
   CLEAR(DialogHeader)
   CLEAR(DialogEntries)
+  CLEAR(DialogPaths)
 
   DialogHeader.Version = CHUI_ABI_VERSION
   DialogHeader.HeaderSize = SIZE(DialogHeader)
   DialogHeader.EntrySize = SIZE(DialogEntries[1])
-  DialogHeader.EntryCount = 11
+  DialogHeader.EntryCount = 13
   DialogHeader.Title = 'CompuHost V4 - Structured Setup Test'
 
   DialogEntries[1].Type = CHUI_PANEL
@@ -294,6 +309,23 @@ PrepareStructuredDialog ROUTINE
   DialogEntries[11].Caption = 'Allow exclusive control'
   DialogEntries[11].Value = TestExclusiveMode
   DialogEntries[11].DefaultValue = '0'
+
+  DialogEntries[12].Type = CHUI_FILE
+  DialogEntries[12].ID = 140
+  DialogEntries[12].ParentID = 110
+  DialogEntries[12].Caption = 'Background image'
+  DialogEntries[12].Options = '*.png=PNG images|*.jpg;*.jpeg=JPEG images|*.*=All files'
+  DialogPaths[1].EntryID = 140
+  DialogPaths[1].Value = TestBackgroundImage
+  DialogPaths[1].DefaultValue = ''
+
+  DialogEntries[13].Type = CHUI_FOLDER
+  DialogEntries[13].ID = 141
+  DialogEntries[13].ParentID = 110
+  DialogEntries[13].Caption = 'Recording folder'
+  DialogPaths[2].EntryID = 141
+  DialogPaths[2].Value = TestRecordingFolder
+  DialogPaths[2].DefaultValue = ''
 ```
 
 ## 9. ApplyStructuredDialog ROUTINE
@@ -309,7 +341,15 @@ ApplyStructuredDialog ROUTINE
   TestSecondaryOutput = DialogEntries[8].Value
   TestSampleRate = DialogEntries[10].Value
   TestExclusiveMode = DialogEntries[11].Value
+  TestBackgroundImage = DialogPaths[1].Value
+  TestRecordingFolder = DialogPaths[2].Value
 ```
+
+`CHUI_FILE` and `CHUI_FOLDER` render a read-only path field plus a themed
+`Browse...` button. The DLL opens the native Windows selector and updates its
+working copy immediately. `DialogPaths[].Value` is written only by Apply or OK;
+Cancel restores the value accepted by the most recent Apply. FILE options use
+`pattern=caption` pairs separated by `|`, as shown above.
 
 ## 10. Host-window close protection
 

@@ -28,7 +28,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - The legacy `Setup.TXA` has been reviewed as an analysis-only source.
 - The Structured Dialog ABI, ownership rules, completion mechanism, dependency scope, and Test_Setup proof-of-concept boundary are recorded in `STRUCTURED_DIALOG_DESIGN.md`.
 - The legacy control and behavior inventory is recorded in `SETUP_TXA_ANALYSIS.md`.
-- The isolated version-1 proof of concept is implemented in `dll/CHStructuredDialog.cpp` with six `CHUI_*` exports.
+- The isolated version-1 proof of concept is implemented in `dll/CHStructuredDialog.cpp`; later ABI-compatible exports extend its original six-function surface.
 - The ABI is fixed at version `00010000H`, a 256-byte header, and a 1,408-byte entry record.
 - Win32 Release builds with deployment disabled and zero compiler warnings.
 - The 32-bit `/W4 /WX` harness verifies ABI sizes, valid and invalid record walking, Cancel preservation, OK write-back to the same structure, and completion consumption.
@@ -55,6 +55,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - The target-style `Reset All Settings` footer action asks for confirmation, loads every value entry's declared default into the dialog working copy, refreshes dependencies, and participates in normal Apply/OK/Cancel transactions without persisting immediately.
 - `CHUI_SetEntryValue` lets an action handler safely return a bounded UTF-8 value to any value entry in the still-open dialog. The DLL validates dropdown and Boolean replacements, refreshes visible controls and dependencies, and updates the Apply dirty state without prematurely committing caller memory.
 - All DLL-created interactive controls now participate in explicit modeless keyboard routing: Tab and Shift+Tab move through the dialog, Escape cancels (or first closes an open dropdown), and Enter accepts from edit/slider fields while native buttons, lists, combos, and checkboxes retain their normal keys.
+- `CHUI_FILE` and `CHUI_FOLDER` entries render an integrated read-only path field and themed Browse button, use the Windows `IFileDialog` selector, and transact through separate 4,096-byte `CHUI_PATH_RECORD` values. The original header and entry ABI sizes remain unchanged; `CHUI_OpenDialogEx` is required only when path entries are present.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

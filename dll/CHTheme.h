@@ -23,7 +23,7 @@ enum CHUIEntryType
     CHUI_PANEL = 1, CHUI_GROUP = 2, CHUI_HEADING = 3, CHUI_SEPARATOR = 4,
     CHUI_ENTRY = 10, CHUI_NUMBER = 11, CHUI_DROPDOWN = 12,
     CHUI_CHECKBOX = 13, CHUI_RADIO = 14, CHUI_SLIDER = 15,
-    CHUI_COLOR = 16, CHUI_ACTION = 20
+    CHUI_COLOR = 16, CHUI_FILE = 17, CHUI_FOLDER = 18, CHUI_ACTION = 20
 };
 
 enum CHUIResult { CHUI_RESULT_CANCEL = 0, CHUI_RESULT_OK = 1, CHUI_RESULT_APPLY = 2 };
@@ -60,7 +60,8 @@ enum CHUIStatus
     CHUI_ERROR_ENTRY_COUNT = -5, CHUI_ERROR_STRING = -6,
     CHUI_ERROR_TYPE = -7, CHUI_ERROR_ID = -8, CHUI_ERROR_PARENT = -9,
     CHUI_ERROR_OPTIONS = -10, CHUI_ERROR_ALREADY_OPEN = -11,
-    CHUI_ERROR_WINDOW = -12
+    CHUI_ERROR_WINDOW = -12, CHUI_ERROR_PATH_COUNT = -13,
+    CHUI_ERROR_PATH_RECORD = -14
 };
 
 #pragma pack(push, 1)
@@ -84,10 +85,18 @@ struct CHUI_ENTRY_RECORD
     char helpText[256];
     char reserved[88];
 };
+
+struct CHUI_PATH_RECORD
+{
+    DWORD entryId;
+    char value[4096];
+    char defaultValue[4096];
+};
 #pragma pack(pop)
 
 static_assert(sizeof(CHUI_DIALOG_HEADER) == 256, "CHUI header ABI changed");
 static_assert(sizeof(CHUI_ENTRY_RECORD) == 1408, "CHUI entry ABI changed");
+static_assert(sizeof(CHUI_PATH_RECORD) == 8196, "CHUI path ABI changed");
 
 BOOL __stdcall CHTheme_AttachWindow(HWND window);
 BOOL __stdcall CHTheme_DetachWindow(HWND window);
@@ -161,10 +170,17 @@ BOOL __stdcall CHTheme_DestroyFlatOptionMask(HWND maskWindow);
 DWORD __stdcall CHUI_GetAbiVersion();
 DWORD __stdcall CHUI_GetHeaderSize();
 DWORD __stdcall CHUI_GetEntrySize();
+DWORD __stdcall CHUI_GetPathRecordSize();
 LONG __stdcall CHUI_ValidateDialog(const CHUI_DIALOG_HEADER* header,
     const CHUI_ENTRY_RECORD* entries);
+LONG __stdcall CHUI_ValidateDialogEx(const CHUI_DIALOG_HEADER* header,
+    const CHUI_ENTRY_RECORD* entries, const CHUI_PATH_RECORD* paths,
+    DWORD pathCount);
 LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
     CHUI_ENTRY_RECORD* entries, HWND completionButton);
+LONG __stdcall CHUI_OpenDialogEx(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
+    CHUI_ENTRY_RECORD* entries, CHUI_PATH_RECORD* paths, DWORD pathCount,
+    HWND completionButton);
 LONG __stdcall CHUI_ConsumeCompletion(HWND completionButton,
     DWORD* instanceId, LONG* result);
 LONG __stdcall CHUI_ConsumeChange(HWND completionButton,
