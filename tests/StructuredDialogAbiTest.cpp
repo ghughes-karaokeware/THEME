@@ -96,6 +96,15 @@ int main(int argc, char** argv)
     if (!dialog) return 11;
     const LONG_PTR style = GetWindowLongPtrW(dialog, GWL_STYLE);
     if (!(style & WS_THICKFRAME) || !(style & WS_MAXIMIZEBOX)) return 19;
+    SetWindowPos(dialog, nullptr, 0, 0, 850, 500,
+        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    RECT clientBounds{};
+    GetClientRect(dialog, &clientBounds);
+    HWND minimumOk = GetDlgItem(dialog, IDOK);
+    RECT okBounds{};
+    GetWindowRect(minimumOk, &okBounds);
+    MapWindowPoints(nullptr, dialog, reinterpret_cast<POINT*>(&okBounds), 2);
+    if (okBounds.top < 0 || okBounds.bottom > clientBounds.bottom) return 21;
     RECT beforeResize{};
     GetWindowRect(dialog, &beforeResize);
     SetWindowPos(dialog, nullptr, 0, 0,

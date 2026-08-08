@@ -46,6 +46,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - Entries can opt into real-time Clarion notification with `CHUI_FLAG_LIVE_NOTIFY`; `CHUI_ConsumeChange` distinguishes those events from final completion and returns the dialog instance plus changed entry ID.
 - Categories with no selected second-level page no longer interpret root categories as third-level detail panels, preventing empty `Advanced - Audio` views.
 - The structured setup window is resizable and maximizable. Navigation, content/detail cards, dynamic controls, and command buttons follow the client area, with separate practical minimum widths for two- and three-panel views.
+- Minimum-height footer placement now uses the real client rectangle, keeping OK and Cancel fully visible. `CHUI_DROPDOWN` uses a rounded, shaded DLL-owned selector face with ellipsis, focus, pressed, disabled, and current-selection states.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

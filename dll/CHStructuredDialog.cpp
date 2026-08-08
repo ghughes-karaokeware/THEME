@@ -445,6 +445,87 @@ void DrawColorButton(RuntimeEntry& entry, const DRAWITEMSTRUCT& item)
     }
 }
 
+void DrawSelectorButton(const DRAWITEMSTRUCT& item)
+{
+    const bool disabled = (item.itemState & ODS_DISABLED) != 0;
+    const bool pressed = (item.itemState & ODS_SELECTED) != 0;
+    const COLORREF fill = disabled ? RGB(20, 31, 42) :
+        pressed ? RGB(17, 42, 65) : RGB(18, 34, 49);
+    const COLORREF topShade = disabled ? RGB(27, 40, 52) : RGB(28, 50, 68);
+    const COLORREF border = disabled ? RGB(48, 61, 74) : RGB(55, 78, 98);
+    const COLORREF textColor = disabled ? RGB(113, 128, 142) : RGB(235, 241, 248);
+    RECT bounds = item.rcItem;
+    HBRUSH brush = CreateSolidBrush(fill);
+    HPEN pen = CreatePen(PS_SOLID, 1, border);
+    HGDIOBJ oldBrush = SelectObject(item.hDC, brush);
+    HGDIOBJ oldPen = SelectObject(item.hDC, pen);
+    RoundRect(item.hDC, bounds.left, bounds.top, bounds.right, bounds.bottom, 6, 6);
+    SelectObject(item.hDC, oldPen);
+    SelectObject(item.hDC, oldBrush);
+    DeleteObject(pen);
+    DeleteObject(brush);
+
+    RECT highlight = bounds;
+    highlight.left += 2;
+    highlight.right -= 2;
+    highlight.top += 2;
+    highlight.bottom = highlight.top + 2;
+    HBRUSH highlightBrush = CreateSolidBrush(topShade);
+    FillRect(item.hDC, &highlight, highlightBrush);
+    DeleteObject(highlightBrush);
+
+    wchar_t caption[512]{};
+    GetWindowTextW(item.hwndItem, caption, static_cast<int>(std::size(caption)));
+    RECT text = bounds;
+    text.left += 11;
+    text.right -= 30;
+    SetBkMode(item.hDC, TRANSPARENT);
+    SetTextColor(item.hDC, textColor);
+    DrawTextW(item.hDC, caption, -1, &text,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+    const int centerX = bounds.right - 16;
+    const int centerY = (bounds.top + bounds.bottom) / 2;
+    HPEN arrow = CreatePen(PS_SOLID, 2, textColor);
+    HGDIOBJ oldArrow = SelectObject(item.hDC, arrow);
+    MoveToEx(item.hDC, centerX - 4, centerY - 2, nullptr);
+    LineTo(item.hDC, centerX, centerY + 2);
+    LineTo(item.hDC, centerX + 4, centerY - 2);
+    SelectObject(item.hDC, oldArrow);
+    DeleteObject(arrow);
+    if ((item.itemState & ODS_FOCUS) && !disabled) {
+        InflateRect(&bounds, -3, -3);
+        DrawFocusRect(item.hDC, &bounds);
+    }
+}
+
+bool ShowSelectorMenu(DialogData& data, RuntimeEntry& entry)
+{
+    const auto options = ParseOptions(entry.definition.options);
+    if (options.empty()) return false;
+    HMENU menu = CreatePopupMenu();
+    if (!menu) return false;
+    for (size_t index = 0; index < options.size(); ++index) {
+        UINT flags = MF_STRING;
+        if (options[index].value == entry.workingValue) flags |= MF_CHECKED;
+        AppendMenuW(menu, flags, static_cast<UINT_PTR>(index + 1),
+            options[index].caption.c_str());
+    }
+    RECT bounds{};
+    GetWindowRect(entry.control, &bounds);
+    const UINT selected = TrackPopupMenu(menu,
+        TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN,
+        bounds.left, bounds.bottom, 0, data.window, nullptr);
+    DestroyMenu(menu);
+    if (!selected || selected > options.size()) return false;
+    const Option& option = options[selected - 1];
+    if (entry.workingValue == option.value) return false;
+    entry.workingValue = option.value;
+    SetWindowTextW(entry.control, option.caption.c_str());
+    InvalidateRect(entry.control, nullptr, TRUE);
+    return true;
+}
+
 bool ChooseEntryColor(DialogData& data, RuntimeEntry& entry)
 {
     unsigned long numeric = 0;
@@ -524,19 +605,13 @@ void ReadControl(RuntimeEntry& entry)
     if (!IsWindow(entry.control)) return;
     switch (entry.definition.type) {
     case CHUI_COLOR:
+    case CHUI_DROPDOWN:
         break;
     case CHUI_CHECKBOX:
     case CHUI_RADIO:
         entry.workingValue = SendMessageW(entry.control, BM_GETCHECK, 0, 0) == BST_CHECKED
             ? "1" : "0";
         break;
-    case CHUI_DROPDOWN: {
-        const int selected = static_cast<int>(SendMessageW(entry.control, CB_GETCURSEL, 0, 0));
-        const auto options = ParseOptions(entry.definition.options);
-        if (selected >= 0 && selected < static_cast<int>(options.size()))
-            entry.workingValue = options[static_cast<size_t>(selected)].value;
-        break;
-    }
     case CHUI_SLIDER:
         entry.workingValue = std::to_string(static_cast<int>(
             SendMessageW(entry.control, TBM_GETPOS, 0, 0)));
@@ -664,18 +739,17 @@ void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
             entry.control = AddWindow(data, 0, L"BUTTON", L"Choose...",
                 WS_TABSTOP | BS_OWNERDRAW, controlX, y, controlWidth, 26, id);
         } else if (entry.definition.type == CHUI_DROPDOWN) {
-            entry.control = AddWindow(data, 0, WC_COMBOBOXW, L"",
-                WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
-                controlX, y, controlWidth, 220, id);
             const auto options = ParseOptions(entry.definition.options);
-            int selected = 0;
+            std::wstring selectedCaption;
             for (size_t option = 0; option < options.size(); ++option) {
-                SendMessageW(entry.control, CB_ADDSTRING, 0,
-                    reinterpret_cast<LPARAM>(options[option].caption.c_str()));
                 if (options[option].value == entry.workingValue)
-                    selected = static_cast<int>(option);
+                    selectedCaption = options[option].caption;
             }
-            SendMessageW(entry.control, CB_SETCURSEL, selected, 0);
+            if (selectedCaption.empty() && !options.empty())
+                selectedCaption = options.front().caption;
+            entry.control = AddWindow(data, 0, L"BUTTON", selectedCaption.c_str(),
+                WS_TABSTOP | BS_OWNERDRAW,
+                controlX, y, controlWidth, 26, id);
         } else if (entry.definition.type == CHUI_SLIDER) {
             entry.control = AddWindow(data, 0, TRACKBAR_CLASSW, L"",
                 WS_TABSTOP | TBS_HORZ | TBS_NOTICKS,
@@ -719,8 +793,8 @@ void Render(DialogData& data)
         GetClientRect(data.window, &client);
     }
     const int clientWidth = std::max(850, static_cast<int>(client.right));
-    const int clientHeight = std::max(500, static_cast<int>(client.bottom));
-    const int panelBottom = clientHeight - 74;
+    const int clientHeight = std::max(360, static_cast<int>(client.bottom));
+    const int panelBottom = clientHeight - 59;
     const int navigationHeight = std::max(180, panelBottom - 48);
     SetWindowPos(data.categories, nullptr, 18, 48, 220, navigationHeight,
         SWP_NOZORDER | SWP_NOACTIVATE);
@@ -771,7 +845,7 @@ void Render(DialogData& data)
                 detailControlWidth,
                 detailLabelWidth);
     }
-    const int buttonY = clientHeight - 60;
+    const int buttonY = clientHeight - 45;
     SetWindowPos(GetDlgItem(data.window, IDOK), nullptr, clientWidth - 176, buttonY,
         76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
     SetWindowPos(GetDlgItem(data.window, IDCANCEL), nullptr, clientWidth - 92,
@@ -957,6 +1031,12 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                 ApplyDependencies(*data);
                 return 0;
             }
+            if (entry.definition.type == CHUI_DROPDOWN) {
+                if (ShowSelectorMenu(*data, entry))
+                    NotifyLiveChange(*data, entry);
+                ApplyDependencies(*data);
+                return 0;
+            }
         }
         if (!data->rendering && id >= kFirstDynamicId &&
             (notification == BN_CLICKED || notification == CBN_SELCHANGE ||
@@ -1013,6 +1093,10 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                     DrawColorButton(entry, *item);
                     return TRUE;
                 }
+                if (entry.definition.type == CHUI_DROPDOWN) {
+                    DrawSelectorButton(*item);
+                    return TRUE;
+                }
             }
         }
         break;
@@ -1044,7 +1128,7 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         GetClientRect(window, &client);
         HDC dc = reinterpret_cast<HDC>(wParam);
         FillRect(dc, &client, data->backgroundBrush);
-        const int panelBottom = std::max(426L, client.bottom - 74);
+        const int panelBottom = std::max(301L, client.bottom - 59);
         const bool hasDetail = data->selectedDetail && !data->detailSuppressed;
         const int availableWidth = std::max(360L, client.right - 466 - 14);
         const int contentWidth = hasDetail
