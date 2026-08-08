@@ -2,6 +2,9 @@
 
 ## 2026-08-08
 
+- Added the first native Promo Trailer Designer proof of concept: packed Clarion ABI, modeless transactional editor, legacy tag parser/canonical serializer, per-line isolation, color palette, Bold/Italic/Underline, Undo/Redo, keyboard formatting, CP1252/length validation, and shared hidden-button completion flow.
+- Added automated Promo markup, ABI, and modeless OK/Cancel tests while retaining a passing Structured Setup regression harness and zero-warning Win32 Release build.
+- Added `CHPromoDesignerTypes.inc` and exact Test_Setup Clarion embed instructions; the legacy `PROMOTRAILEREDITOR.TXA` remains analysis-only and unchanged.
 - Corrected the Structured Setup guide's code-block contrast and added paste-ready Clarion supporting routines for loading, preparing, accepting/decoding, applying, live changes, actions, and close protection.
 - Rebuilt the Structured Setup Win32 Release candidate with zero warnings/errors and passed the 32-bit ABI validation/round-trip harness.
 - Backed up every active deployed DLL/library/include/document target, then hash-verified the RC DLL across ten runtime locations and the Clarion import library across nine linker locations.

@@ -31,6 +31,16 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - A timestamped pre-deployment recovery package with source-path/hash manifest and post-deployment verification CSV is stored under `clarion-theme-recovery/outputs/CHTheme-RC-PreDeploy-20260808-112556`.
 - The dedicated `CompuHost-V4-Structured-Setup-Dialog.html` guide and paste-ready Clarion sample are installed in the Karaokeware accessory documentation folder.
 
+## Promo Trailer Designer proof of concept
+
+- Added an isolated modeless native Promo Trailer Designer without changing the Structured Setup ABI or implementation.
+- Promo ABI version is `00010000H`; the packed Clarion/C++ data record is 4,256 bytes with a 4,096-byte caller-owned text buffer and caller-selected compatibility limit.
+- The designer parses and visually renders colors 0-9 plus Bold, Italic, and Underline; each physical line is independently reset and serialized as one Promo Trailer.
+- Blank lines are omitted on acceptance to match `PROMOTRAILEREDITOR.TXA`; Cancel leaves the caller buffer unchanged.
+- The native editor supports selection/caret formatting, Ctrl+B/Ctrl+I/Ctrl+U, Undo/Redo, line creation/joining, paste, themed buttons, palette swatches, resizing, and CP1252 validation.
+- Parser/serializer stability, ABI validation, modeless OK/Cancel transaction, and the existing Structured Setup ABI regression harness all pass.
+- Exact Clarion embed instructions are in `docs/PROMO_DESIGNER_INTEGRATION.md`. `Test_Setup.app` is a binary Clarion project and was not rewritten outside the Clarion IDE; the candidate DLL/include/guide are staged for adding the documented embeds to that same application.
+
 - The legacy `Setup.TXA` has been reviewed as an analysis-only source.
 - The Structured Dialog ABI, ownership rules, completion mechanism, dependency scope, and Test_Setup proof-of-concept boundary are recorded in `STRUCTURED_DIALOG_DESIGN.md`.
 - The legacy control and behavior inventory is recorded in `SETUP_TXA_ANALYSIS.md`.

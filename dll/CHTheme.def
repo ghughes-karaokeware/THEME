@@ -67,3 +67,8 @@ EXPORTS
     CHUI_ConsumeChange        = _CHUI_ConsumeChange@12
     CHUI_ConsumeAction        = _CHUI_ConsumeAction@12
     CHUI_SetEntryValue        = _CHUI_SetEntryValue@12
+    CHPT_GetAbiVersion        = _CHPT_GetAbiVersion@0
+    CHPT_GetDataSize          = _CHPT_GetDataSize@0
+    CHPT_ValidateData         = _CHPT_ValidateData@4
+    CHPT_OpenDesigner         = _CHPT_OpenDesigner@12
+    CHPT_ConsumeCompletion    = _CHPT_ConsumeCompletion@12

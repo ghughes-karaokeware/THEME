@@ -86,10 +86,31 @@ struct CHUI_ENTRY_RECORD
     char reserved[88];
 };
 
+struct CHPT_PROMO_DATA
+{
+    DWORD version, structureSize, flags, bufferCapacity, maximumLength;
+    DWORD instanceId;
+    LONG result;
+    DWORD inputLength, outputLength;
+    char text[4096];
+    char reserved[124];
+};
+
 #pragma pack(pop)
 
 static_assert(sizeof(CHUI_DIALOG_HEADER) == 256, "CHUI header ABI changed");
 static_assert(sizeof(CHUI_ENTRY_RECORD) == 5376, "CHUI entry ABI changed");
+static_assert(sizeof(CHPT_PROMO_DATA) == 4256, "CHPT promo ABI changed");
+
+enum CHPTResult { CHPT_RESULT_CANCEL = 0, CHPT_RESULT_OK = 1 };
+enum CHPTFlags { CHPT_FLAG_DEBUG_LOG = 0x00000001 };
+enum CHPTStatus
+{
+    CHPT_STATUS_OK = 1, CHPT_ERROR_ARGUMENT = -1, CHPT_ERROR_VERSION = -2,
+    CHPT_ERROR_SIZE = -3, CHPT_ERROR_BUFFER = -4,
+    CHPT_ERROR_ALREADY_OPEN = -5, CHPT_ERROR_WINDOW = -6,
+    CHPT_ERROR_ENCODING = -7, CHPT_ERROR_LENGTH = -8
+};
 
 BOOL __stdcall CHTheme_AttachWindow(HWND window);
 BOOL __stdcall CHTheme_DetachWindow(HWND window);
@@ -175,6 +196,13 @@ LONG __stdcall CHUI_ConsumeAction(HWND completionButton,
     DWORD* instanceId, DWORD* entryId);
 LONG __stdcall CHUI_SetEntryValue(DWORD instanceId, DWORD entryId,
     const char* value);
+DWORD __stdcall CHPT_GetAbiVersion();
+DWORD __stdcall CHPT_GetDataSize();
+LONG __stdcall CHPT_ValidateData(const CHPT_PROMO_DATA* data);
+LONG __stdcall CHPT_OpenDesigner(HWND ownerWindow, CHPT_PROMO_DATA* data,
+    HWND completionButton);
+LONG __stdcall CHPT_ConsumeCompletion(HWND completionButton,
+    DWORD* instanceId, LONG* result);
 
 #ifdef __cplusplus
 }
