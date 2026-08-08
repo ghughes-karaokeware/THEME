@@ -47,6 +47,7 @@ PromoCompletedInstance  ULONG
 PromoDesignerResult     LONG
 PromoDesignerStatus     LONG
 PromoAcceptedText       CSTRING(4096)
+PromoAutoload           BYTE
 ```
 
 `PromoAcceptedText` is the test application's last accepted value. Cancel never changes it.
@@ -73,6 +74,9 @@ PreparePromoDesigner ROUTINE
   PromoData.BufferCapacity = CHPT_TEXT_CAPACITY
   PromoData.MaximumLength = 1027
   PromoData.Flags = CHPT_FLAG_DEBUG_LOG
+  IF PromoAutoload
+    PromoData.Flags = BOR(PromoData.Flags,CHPT_FLAG_AUTOLOAD)
+  END
 
   IF PromoAcceptedText = ''
     PromoData.Text = 'Welcome to <<3><<B>Friday Night Karaoke<</B><<0>!<13,10>' & |
@@ -134,6 +138,7 @@ IF CHPT_ConsumeCompletion(?CHUIComplete{PROP:Handle}, |
     CASE PromoDesignerResult
     OF CHPT_RESULT_OK
       PromoAcceptedText = PromoData.Text
+      PromoAutoload = CHOOSE(BAND(PromoData.Flags,CHPT_FLAG_AUTOLOAD) <> 0,1,0)
       MESSAGE('Accepted encoded Promo Trailer text:|' & PromoAcceptedText)
     OF CHPT_RESULT_CANCEL
       MESSAGE('Promo Trailer changes cancelled.|Original text remains unchanged.')
@@ -195,6 +200,7 @@ The staged DLL contains the exports, but the current Clarion-format `CHTheme.lib
 - The designer is modeless, so the Test_Setup ACCEPT loop continues running.
 - Only one Promo Designer instance may be open.
 - OK serializes the edited rich text into `PromoData.Text` and reports `CHPT_RESULT_OK`.
+- OK returns the Auto-load checkbox in `CHPT_FLAG_AUTOLOAD`; the example copies it to `PromoAutoload`.
 - Cancel reports `CHPT_RESULT_CANCEL` and leaves `PromoData.Text` and `PromoAcceptedText` unchanged.
 - Closing the designer with the title-bar X is treated as Cancel.
 - `PromoDesignerInstance` must be cleared only after consuming the matching completion.

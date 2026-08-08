@@ -103,7 +103,7 @@ static_assert(sizeof(CHUI_ENTRY_RECORD) == 5376, "CHUI entry ABI changed");
 static_assert(sizeof(CHPT_PROMO_DATA) == 4256, "CHPT promo ABI changed");
 
 enum CHPTResult { CHPT_RESULT_CANCEL = 0, CHPT_RESULT_OK = 1 };
-enum CHPTFlags { CHPT_FLAG_DEBUG_LOG = 0x00000001 };
+enum CHPTFlags { CHPT_FLAG_DEBUG_LOG = 0x00000001, CHPT_FLAG_AUTOLOAD = 0x00000002 };
 enum CHPTStatus
 {
     CHPT_STATUS_OK = 1, CHPT_ERROR_ARGUMENT = -1, CHPT_ERROR_VERSION = -2,

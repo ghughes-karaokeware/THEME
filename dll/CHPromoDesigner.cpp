@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <richedit.h>
 #include <commctrl.h>
+#include <commdlg.h>
 #include <algorithm>
 #include <deque>
 #include <memory>
@@ -13,10 +14,10 @@ namespace {
 constexpr DWORD kVersion = 0x00010000;
 constexpr wchar_t kClassName[] = L"CHThemePromoDesigner";
 constexpr COLORREF kBg = RGB(5, 15, 25), kPanel = RGB(14, 31, 46), kBorder = RGB(43, 65, 84), kText = RGB(238, 245, 251), kAccent = RGB(0, 120, 215);
-constexpr int ID_EDITOR = 100, ID_BOLD = 110, ID_ITALIC = 111, ID_UNDERLINE = 112, ID_UNDO = 113, ID_REDO = 114, ID_OK = 120, ID_CANCEL = 121, ID_COLOR0 = 200;
+constexpr int ID_EDITOR = 100, ID_BOLD = 110, ID_ITALIC = 111, ID_UNDERLINE = 112, ID_UNDO = 113, ID_REDO = 114, ID_AUTOLOAD = 115, ID_LOAD = 116, ID_SAVE = 117, ID_CLEAR = 118, ID_OK = 120, ID_CANCEL = 121, ID_COLOR0 = 200;
 const COLORREF kColors[10] = { RGB(255,255,255), RGB(255,255,255), RGB(255,255,0), RGB(255,0,0), RGB(52,204,255), RGB(52,255,52), RGB(255,128,0), RGB(255,0,255), RGB(128,0,128), RGB(255,204,0) };
 struct Completion { DWORD instance; LONG result; };
-struct Data { HWND window{}, owner{}, notify{}, editor{}; CHPT_PROMO_DATA* caller{}; DWORD instance{}; std::string original; HFONT font{}; bool completed{}; };
+struct Data { HWND window{}, owner{}, notify{}, editor{}; CHPT_PROMO_DATA* caller{}; DWORD instance{}; std::string original; HFONT font{}; bool completed{}, autoload{}; };
 std::mutex gLock; std::unordered_map<HWND, std::unique_ptr<Data>> gWindows; std::unordered_map<HWND, std::deque<Completion>> gCompletions; DWORD gNext = 1; HMODULE gRich{};
 void Debug(const Data& d,const wchar_t* event,DWORD value=0){if(!(d.caller->flags&CHPT_FLAG_DEBUG_LOG))return;wchar_t line[180]{};wsprintfW(line,L"CHPT instance=%lu %s value=%lu input=%lu output=%lu\n",d.instance,event,value,d.caller->inputLength,d.caller->outputLength);OutputDebugStringW(line);}
 
@@ -65,12 +66,12 @@ void LoadDocument(Data& d)
     CHARRANGE end{static_cast<LONG>(plain.size()), static_cast<LONG>(plain.size())}; SendMessageW(d.editor, EM_EXSETSEL, 0, reinterpret_cast<LPARAM>(&end));
 }
 
-bool SaveDocument(Data& d)
+bool EncodeDocument(Data& d, std::string& encoded)
 {
     const int length = GetWindowTextLengthW(d.editor); std::wstring text(static_cast<size_t>(length) + 1, L'\0'); GetWindowTextW(d.editor, text.data(), length + 1); text.resize(length);
     chpromo::Document doc; doc.characters.reserve(text.size());
     for (LONG i = 0; i < length; ++i) {
-        if (text[i] != L'\r' && text[i] != L'\n') { char encoded{}; BOOL usedDefault=FALSE; if(!WideCharToMultiByte(1252,WC_NO_BEST_FIT_CHARS,&text[i],1,&encoded,1,"?",&usedDefault)||usedDefault){MessageBoxW(d.window,L"This character cannot be stored by the current CompuHost ANSI Promo Trailer format.",L"Promo Trailer Designer",MB_OK|MB_ICONWARNING);return false;} }
+        if (text[i] != L'\r' && text[i] != L'\n') { char ansi{}; BOOL usedDefault=FALSE; if(!WideCharToMultiByte(1252,WC_NO_BEST_FIT_CHARS,&text[i],1,&ansi,1,"?",&usedDefault)||usedDefault){MessageBoxW(d.window,L"This character cannot be stored by the current CompuHost ANSI Promo Trailer format.",L"Promo Trailer Designer",MB_OK|MB_ICONWARNING);return false;} }
         chpromo::Style s{};
         if (text[i] != L'\r' && text[i] != L'\n') {
             CHARRANGE range{i, i + 1}; SendMessageW(d.editor, EM_EXSETSEL, 0, reinterpret_cast<LPARAM>(&range)); CHARFORMAT2W cf{}; cf.cbSize = sizeof(cf); cf.dwMask = CFM_BOLD | CFM_ITALIC | CFM_UNDERLINE | CFM_COLOR; SendMessageW(d.editor, EM_GETCHARFORMAT, SCF_SELECTION, reinterpret_cast<LPARAM>(&cf));
@@ -79,14 +80,38 @@ bool SaveDocument(Data& d)
         }
         if (text[i] != L'\r') doc.characters.push_back({text[i], s});
     }
-    const std::string encoded = chpromo::Serialize(doc); const DWORD limit = std::min<DWORD>(d.caller->maximumLength, d.caller->bufferCapacity - 1);
+    encoded = chpromo::Serialize(doc); const DWORD limit = std::min<DWORD>(d.caller->maximumLength, d.caller->bufferCapacity - 1);
     if (encoded.size() > limit) { wchar_t message[160]; wsprintfW(message, L"The encoded Promo Trailer text is %u characters. The current limit is %u.", static_cast<unsigned>(encoded.size()), limit); MessageBoxW(d.window, message, L"Promo Trailer Designer", MB_OK | MB_ICONWARNING); return false; }
-    memcpy(d.caller->text, encoded.data(), encoded.size()); d.caller->text[encoded.size()] = 0; d.caller->outputLength = static_cast<DWORD>(encoded.size()); Debug(d,L"serialized",static_cast<DWORD>(encoded.size())); return true;
+    return true;
+}
+
+bool SaveDocument(Data& d)
+{
+    std::string encoded; if (!EncodeDocument(d, encoded)) return false;
+    memcpy(d.caller->text, encoded.data(), encoded.size()); d.caller->text[encoded.size()] = 0; d.caller->outputLength = static_cast<DWORD>(encoded.size());
+    if (d.autoload) d.caller->flags |= CHPT_FLAG_AUTOLOAD; else d.caller->flags &= ~static_cast<DWORD>(CHPT_FLAG_AUTOLOAD);
+    Debug(d,L"serialized",static_cast<DWORD>(encoded.size())); return true;
+}
+
+bool SelectPrmFile(Data& d, bool save, wchar_t* path, DWORD capacity)
+{
+    path[0]=0; OPENFILENAMEW ofn{}; ofn.lStructSize=sizeof(ofn); ofn.hwndOwner=d.window; ofn.lpstrFilter=L"CompuHost Promo Trailer (*.prm)\0*.prm\0Text files (*.txt)\0*.txt\0All files (*.*)\0*.*\0\0"; ofn.lpstrFile=path; ofn.nMaxFile=capacity; ofn.lpstrDefExt=L"prm"; ofn.lpstrTitle=save?L"Save Promo Trailer":L"Load Promo Trailer"; ofn.Flags=OFN_PATHMUSTEXIST|OFN_HIDEREADONLY|(save?OFN_OVERWRITEPROMPT:OFN_FILEMUSTEXIST);
+    return save?GetSaveFileNameW(&ofn)!=FALSE:GetOpenFileNameW(&ofn)!=FALSE;
+}
+
+void SavePrm(Data& d)
+{
+    std::string encoded; if(!EncodeDocument(d,encoded))return; wchar_t path[MAX_PATH]{};if(!SelectPrmFile(d,true,path,MAX_PATH))return;HANDLE file=CreateFileW(path,GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){MessageBoxW(d.window,L"The Promo Trailer file could not be created.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}DWORD written{};BOOL ok=WriteFile(file,encoded.data(),static_cast<DWORD>(encoded.size()),&written,nullptr);CloseHandle(file);if(!ok||written!=encoded.size())MessageBoxW(d.window,L"The Promo Trailer file could not be written completely.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);
+}
+
+void LoadPrm(Data& d)
+{
+    wchar_t path[MAX_PATH]{};if(!SelectPrmFile(d,false,path,MAX_PATH))return;HANDLE file=CreateFileW(path,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){MessageBoxW(d.window,L"The Promo Trailer file could not be opened.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}LARGE_INTEGER size{};if(!GetFileSizeEx(file,&size)||size.QuadPart<0||size.QuadPart>d.caller->maximumLength){CloseHandle(file);MessageBoxW(d.window,L"The Promo Trailer file exceeds the configured maximum length.",L"Promo Trailer Designer",MB_OK|MB_ICONWARNING);return;}std::string value(static_cast<size_t>(size.QuadPart),'\0');DWORD read{};BOOL ok=value.empty()||ReadFile(file,value.data(),static_cast<DWORD>(value.size()),&read,nullptr);CloseHandle(file);if(!ok||read!=value.size()){MessageBoxW(d.window,L"The Promo Trailer file could not be read completely.",L"Promo Trailer Designer",MB_OK|MB_ICONERROR);return;}if(value.size()>=3&&static_cast<unsigned char>(value[0])==0xEF&&static_cast<unsigned char>(value[1])==0xBB&&static_cast<unsigned char>(value[2])==0xBF)value.erase(0,3);d.original=value;LoadDocument(d);SetFocus(d.editor);
 }
 
 void Layout(Data& d)
 {
-    RECT r{}; GetClientRect(d.window, &r); const int m = 18, top = 100, bottom = 62;
+    RECT r{}; GetClientRect(d.window, &r); const int m = 18, top = 142, bottom = 62;
     MoveWindow(d.editor, m, top, std::max(100, static_cast<int>(r.right) - m * 2), std::max(80, static_cast<int>(r.bottom) - top - bottom), TRUE);
     MoveWindow(GetDlgItem(d.window, ID_OK), r.right - 190, r.bottom - 44, 78, 30, TRUE); MoveWindow(GetDlgItem(d.window, ID_CANCEL), r.right - 102, r.bottom - 44, 78, 30, TRUE);
 }
@@ -98,20 +123,23 @@ LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
     switch (msg) {
     case WM_CREATE: {
         d->font = CreateFontW(-16,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
-        auto button=[&](int id,const wchar_t* text,int x,int width){HWND h=CreateWindowExW(0,L"BUTTON",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,x,62,width,30,w,reinterpret_cast<HMENU>(id),nullptr,nullptr);SendMessageW(h,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE);};
-        button(ID_BOLD,L"B",18,36); button(ID_ITALIC,L"I",58,36); button(ID_UNDERLINE,L"U",98,36); button(ID_UNDO,L"Undo",148,58); button(ID_REDO,L"Redo",210,58);
-        button(ID_COLOR0,L"Default",278,62); for(int i=1;i<10;++i) button(ID_COLOR0+i,std::to_wstring(i).c_str(),344+(i-1)*38,34);
-        button(ID_OK,L"OK",0,78); button(ID_CANCEL,L"Cancel",0,78);
+        auto button=[&](int id,const wchar_t* text,int x,int y,int width){HWND h=CreateWindowExW(0,L"BUTTON",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,x,y,width,30,w,reinterpret_cast<HMENU>(id),nullptr,nullptr);SendMessageW(h,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE);};
+        button(ID_BOLD,L"B",18,66,36); button(ID_ITALIC,L"I",58,66,36); button(ID_UNDERLINE,L"U",98,66,36); button(ID_UNDO,L"Undo",148,66,58); button(ID_REDO,L"Redo",210,66,58);
+        button(ID_COLOR0,L"Default",278,66,62); for(int i=1;i<10;++i) button(ID_COLOR0+i,std::to_wstring(i).c_str(),344+(i-1)*38,66,34);
+        button(ID_LOAD,L"Load .PRM",18,104,92); button(ID_SAVE,L"Save .PRM",116,104,92); button(ID_CLEAR,L"Clear",214,104,70); button(ID_AUTOLOAD,L"Auto-load selected Promo Trailer on startup",300,104,330);
+        button(ID_OK,L"OK",0,0,78); button(ID_CANCEL,L"Cancel",0,0,78);
+        d->autoload=(d->caller->flags&CHPT_FLAG_AUTOLOAD)!=0;
         d->editor=CreateWindowExW(0,MSFTEDIT_CLASS,L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN,18,100,700,350,w,reinterpret_cast<HMENU>(ID_EDITOR),nullptr,nullptr);
         SendMessageW(d->editor,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE); SendMessageW(d->editor,EM_SETBKGNDCOLOR,0,kPanel); SendMessageW(d->editor,EM_SETLIMITTEXT,d->caller->maximumLength,0); SetWindowSubclass(d->editor,EditorSubclass,1,reinterpret_cast<DWORD_PTR>(d)); CHARFORMAT2W base{};base.cbSize=sizeof(base);base.dwMask=CFM_COLOR;base.crTextColor=kText;SendMessageW(d->editor,EM_SETCHARFORMAT,SCF_ALL,reinterpret_cast<LPARAM>(&base));LoadDocument(*d); Layout(*d); return 0; }
     case WM_GETMINMAXINFO: { auto* info=reinterpret_cast<MINMAXINFO*>(lp); info->ptMinTrackSize.x=760; info->ptMinTrackSize.y=480; return 0; }
     case WM_SIZE: Layout(*d); return 0;
     case WM_ERASEBKGND: { RECT r{}; GetClientRect(w,&r); HBRUSH brush=CreateSolidBrush(kBg); FillRect(reinterpret_cast<HDC>(wp),&r,brush); DeleteObject(brush); return 1; }
-    case WM_PAINT: { PAINTSTRUCT ps{}; HDC dc=BeginPaint(w,&ps); SetBkMode(dc,TRANSPARENT); SetTextColor(dc,kText); SelectObject(dc,d->font); TextOutW(dc,18,16,L"PROMO TRAILER DESIGNER",22); SetTextColor(dc,RGB(164,188,208)); TextOutW(dc,18,34,L"Each line represents a separate Promo Trailer. Press Enter to create another trailer.",82); EndPaint(w,&ps); return 0; }
-    case WM_DRAWITEM: { auto* item=reinterpret_cast<DRAWITEMSTRUCT*>(lp); if(item->CtlType!=ODT_BUTTON)break; RECT r=item->rcItem; const bool pressed=(item->itemState&ODS_SELECTED)!=0; HBRUSH outside=CreateSolidBrush(kBg);FillRect(item->hDC,&r,outside);DeleteObject(outside);HBRUSH fill=CreateSolidBrush(item->CtlID==ID_OK?kAccent:(pressed?RGB(31,64,91):kPanel)); HPEN pen=CreatePen(PS_SOLID,1,item->CtlID==ID_OK?RGB(44,151,239):kBorder); HGDIOBJ oldBrush=SelectObject(item->hDC,fill),oldPen=SelectObject(item->hDC,pen); RoundRect(item->hDC,r.left,r.top,r.right,r.bottom,7,7); SelectObject(item->hDC,oldBrush);SelectObject(item->hDC,oldPen);DeleteObject(fill);DeleteObject(pen); wchar_t label[32]{};GetWindowTextW(item->hwndItem,label,32);SetBkMode(item->hDC,TRANSPARENT);SetTextColor(item->hDC,kText);SelectObject(item->hDC,d->font); if(item->CtlID>=ID_COLOR0&&item->CtlID<ID_COLOR0+10){int index=item->CtlID-ID_COLOR0;if(index){RECT sw=r;InflateRect(&sw,-8,-7);HBRUSH color=CreateSolidBrush(kColors[index]);FillRect(item->hDC,&sw,color);DeleteObject(color);}else DrawTextW(item->hDC,label,-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);}else DrawTextW(item->hDC,label,-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);return TRUE; }
+    case WM_PAINT: { PAINTSTRUCT ps{}; HDC dc=BeginPaint(w,&ps);RECT client{};GetClientRect(w,&client);HBRUSH accent=CreateSolidBrush(kAccent);RECT bar{14,14,18,54};FillRect(dc,&bar,accent);RECT line{18,58,client.right-18,59};FillRect(dc,&line,accent);DeleteObject(accent);SetBkMode(dc,TRANSPARENT);SetTextColor(dc,kText);SelectObject(dc,d->font);RECT title{26,15,client.right-18,36};DrawTextW(dc,L"PROMO TRAILER DESIGNER",-1,&title,DT_LEFT|DT_SINGLELINE);SetTextColor(dc,RGB(164,188,208));RECT help{26,36,client.right-18,56};DrawTextW(dc,L"Each line is a separate trailer. Format text, manage .PRM files, then press OK to return it to CompuHost V4.",-1,&help,DT_LEFT|DT_SINGLELINE|DT_END_ELLIPSIS);EndPaint(w,&ps);return 0; }
+    case WM_DRAWITEM: { auto* item=reinterpret_cast<DRAWITEMSTRUCT*>(lp); if(item->CtlType!=ODT_BUTTON)break; RECT r=item->rcItem; const bool pressed=(item->itemState&ODS_SELECTED)!=0; HBRUSH outside=CreateSolidBrush(kBg);FillRect(item->hDC,&r,outside);DeleteObject(outside);HBRUSH fill=CreateSolidBrush(item->CtlID==ID_OK?kAccent:(pressed?RGB(31,64,91):kPanel)); HPEN pen=CreatePen(PS_SOLID,1,item->CtlID==ID_OK?RGB(44,151,239):kBorder); HGDIOBJ oldBrush=SelectObject(item->hDC,fill),oldPen=SelectObject(item->hDC,pen); RoundRect(item->hDC,r.left,r.top,r.right,r.bottom,7,7); SelectObject(item->hDC,oldBrush);SelectObject(item->hDC,oldPen);DeleteObject(fill);DeleteObject(pen); wchar_t label[80]{};GetWindowTextW(item->hwndItem,label,80);SetBkMode(item->hDC,TRANSPARENT);SetTextColor(item->hDC,kText);SelectObject(item->hDC,d->font); if(item->CtlID>=ID_COLOR0&&item->CtlID<ID_COLOR0+10){int index=item->CtlID-ID_COLOR0;if(index){RECT sw=r;InflateRect(&sw,-8,-7);HBRUSH color=CreateSolidBrush(kColors[index]);FillRect(item->hDC,&sw,color);DeleteObject(color);}else DrawTextW(item->hDC,label,-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);}else if(item->CtlID==ID_AUTOLOAD){RECT box{r.left+10,r.top+7,r.left+26,r.top+23};HBRUSH checkBg=CreateSolidBrush(RGB(8,22,34));FillRect(item->hDC,&box,checkBg);DeleteObject(checkBg);FrameRect(item->hDC,&box,GetSysColorBrush(COLOR_3DSHADOW));if(d->autoload){HPEN checkPen=CreatePen(PS_SOLID,2,RGB(77,190,255));HGDIOBJ old=SelectObject(item->hDC,checkPen);MoveToEx(item->hDC,box.left+3,box.top+8,nullptr);LineTo(item->hDC,box.left+7,box.bottom-3);LineTo(item->hDC,box.right-3,box.top+3);SelectObject(item->hDC,old);DeleteObject(checkPen);}RECT textRect=r;textRect.left=32;DrawTextW(item->hDC,label,-1,&textRect,DT_LEFT|DT_VCENTER|DT_SINGLELINE);}else DrawTextW(item->hDC,label,-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);return TRUE; }
     case WM_COMMAND: switch(LOWORD(wp)) {
         case ID_BOLD: Toggle(d->editor,CFM_BOLD,CFE_BOLD); return 0; case ID_ITALIC: Toggle(d->editor,CFM_ITALIC,CFE_ITALIC); return 0; case ID_UNDERLINE: Toggle(d->editor,CFM_UNDERLINE,CFE_UNDERLINE); return 0;
         case ID_UNDO: SendMessageW(d->editor,EM_UNDO,0,0); return 0; case ID_REDO: SendMessageW(d->editor,EM_REDO,0,0); return 0;
+        case ID_LOAD: LoadPrm(*d); return 0; case ID_SAVE: SavePrm(*d); return 0; case ID_CLEAR: SetWindowTextW(d->editor,L"");SetFocus(d->editor);return 0; case ID_AUTOLOAD: d->autoload=!d->autoload;InvalidateRect(GetDlgItem(w,ID_AUTOLOAD),nullptr,FALSE);return 0;
         case ID_OK: if(SaveDocument(*d)){Notify(*d,CHPT_RESULT_OK);DestroyWindow(w);} return 0; case ID_CANCEL: Notify(*d,CHPT_RESULT_CANCEL);DestroyWindow(w);return 0;
         default: if(LOWORD(wp)>=ID_COLOR0&&LOWORD(wp)<ID_COLOR0+10){SetColor(d->editor,LOWORD(wp)-ID_COLOR0);return 0;} break; } break;
     case WM_CLOSE: Notify(*d,CHPT_RESULT_CANCEL); DestroyWindow(w); return 0;
