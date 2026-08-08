@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CompuHost V4 Structured Setup Dialog</title>
+<style>
+body{margin:0;background:#f4f7fb;color:#182333;font:15px/1.55 "Segoe UI",Arial,sans-serif}header{padding:34px max(22px,calc((100% - 1050px)/2));color:#fff;background:linear-gradient(130deg,#0c233b,#0877d1)}main{max-width:1050px;margin:24px auto 60px;padding:0 18px}section{margin:18px 0;padding:24px;background:#fff;border:1px solid #d8e0ea;border-radius:10px}h1,h2,h3{line-height:1.2}h2{margin-top:0}code{background:#e9f4ff;color:#07538e;padding:1px 4px;border-radius:3px}pre{overflow:auto;background:#101a27;color:#eaf2fa;padding:15px;border-radius:8px;font:13px/1.45 Consolas,monospace}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #d8e0ea;text-align:left;vertical-align:top}.note{padding:12px 14px;border-left:4px solid #0877d1;background:#e9f4ff}.warn{border-color:#a86100;background:#fff6e8}@media print{body{background:#fff}section{border:0;border-bottom:1px solid #aaa;break-inside:avoid}}
+</style></head><body>
+<header><h1>CompuHost V4 Structured Setup Dialog</h1><p>Clarion 10 integration, migration, callbacks, and testing for the CHTheme release candidate.</p><small>Updated August 8, 2026 · ABI 00020000H · Header 256 bytes · Entry 5376 bytes</small></header>
+<main>
+<section><h2>What the DLL owns</h2><p>The DLL creates the complete Setup window and its modern controls. Clarion supplies a header plus a flat entry array and receives accepted values through the same array. File/folder browsers, the combined font/style/color popup, dependency display, resizing, hover feedback, and Apply state are handled inside the DLL.</p><p class="note"><strong>Ownership rule:</strong> keep <code>DialogHeader</code>, <code>DialogEntries</code>, and the hidden callback button alive until the dialog closes. Do not close the owning Clarion window while <code>DialogInstance</code> is nonzero.</p></section>
+
+<section><h2>1. Install development files</h2><table><tr><th>File</th><th>Development location</th></tr><tr><td><code>CHTheme.dll</code></td><td><code>Clarion 10\accessory\bin</code> and beside every test/application EXE</td></tr><tr><td><code>CHTheme.lib</code></td><td><code>Clarion 10\accessory\lib</code> and project folders that link it directly</td></tr><tr><td><code>CHStructuredDialogTypes.inc</code></td><td>A Clarion INCLUDE search folder or the application project folder</td></tr></table><p>Regenerate the Clarion application after updating accessory files, perform a clean Release build, and then confirm that the RC DLL is beside the EXE. The include must use Windows CRLF line endings.</p></section>
+
+<section><h2>2. Global declarations</h2><p>Add the include before the global MAP:</p><pre><code>  INCLUDE('CHStructuredDialogTypes.inc')</code></pre><p>Add these imports inside the global MAP:</p><pre><code>    MODULE('CHTheme.dll')
+CHUI_GetAbiVersion(),ULONG,PASCAL,RAW,NAME('CHUI_GetAbiVersion')
+CHUI_GetHeaderSize(),ULONG,PASCAL,RAW,NAME('CHUI_GetHeaderSize')
+CHUI_GetEntrySize(),ULONG,PASCAL,RAW,NAME('CHUI_GetEntrySize')
+CHUI_ValidateDialog(LONG HeaderAddr,LONG EntriesAddr),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialog')
+CHUI_OpenDialog(LONG OwnerHwnd,LONG HeaderAddr,LONG EntriesAddr,LONG CallbackHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
+CHUI_ConsumeCompletion(LONG CallbackHwnd,*ULONG InstanceID,*LONG Result),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
+CHUI_ConsumeChange(LONG CallbackHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeChange')
+CHUI_ConsumeAction(LONG CallbackHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeAction')
+CHUI_SetEntryValue(ULONG InstanceID,ULONG EntryID,*CSTRING Value),LONG,PASCAL,RAW,NAME('CHUI_SetEntryValue')
+    END</code></pre></section>
+
+<section><h2>3. Procedure data and callback control</h2><p>Declare the header and entry records exactly as defined in the include; do not reorder or shorten fields. Dimension the entry array to the maximum used by the procedure. Also declare <code>DialogInstance</code>, <code>CompletedInstance</code>, <code>ChangedInstance</code>, <code>ChangedEntryID</code>, <code>DialogResult</code>, and <code>DialogStatus</code> as shown in the full sample.</p><p>Add one hidden button to the owner window:</p><pre><code>BUTTON(''),AT(0,0,1,1),USE(?CHUIComplete),HIDE</code></pre><p>The complete, paste-ready structures and routines are in <code>CompuHostV4-StructuredSetup-Sample.clw.txt</code>, installed beside this guide.</p></section>
+
+<section><h2>4. Open the dialog safely</h2><pre><code>IF DialogInstance
+  MESSAGE('The Setup dialog is already open.')
+  CYCLE
+END
+DO LoadCompuHostSampleData
+DO PrepareStructuredDialog
+IF CHUI_GetAbiVersion() &lt;&gt; CHUI_ABI_VERSION OR |
+   CHUI_GetHeaderSize() &lt;&gt; SIZE(DialogHeader) OR |
+   CHUI_GetEntrySize() &lt;&gt; SIZE(DialogEntries[1])
+  MESSAGE('CHTheme Structured Setup ABI mismatch.')
+  CYCLE
+END
+DialogStatus = CHUI_ValidateDialog(ADDRESS(DialogHeader),ADDRESS(DialogEntries[1]))
+IF DialogStatus &lt;&gt; CHUI_STATUS_OK
+  MESSAGE('Structured Setup validation failed: ' &amp; DialogStatus)
+  CYCLE
+END
+DialogStatus = CHUI_OpenDialog(0{PROP:Handle},ADDRESS(DialogHeader), |
+                               ADDRESS(DialogEntries[1]),?CHUIComplete{PROP:Handle})
+IF DialogStatus &gt; 0
+  DialogInstance = DialogStatus
+ELSE
+  MESSAGE('Unable to open Structured Setup: ' &amp; DialogStatus)
+END</code></pre></section>
+
+<section><h2>5. Complete callback event</h2><p>Put this in <code>?CHUIComplete / EVENT:Accepted</code>. Actions and live changes are consumed first because they do not close the dialog.</p><pre><code>IF CHUI_ConsumeAction(?CHUIComplete{PROP:Handle},ChangedInstance,ChangedEntryID)
+  IF ChangedInstance = DialogInstance
+    DO HandleStructuredAction
+  END
+END
+
+IF CHUI_ConsumeChange(?CHUIComplete{PROP:Handle},ChangedInstance,ChangedEntryID)
+  IF ChangedInstance = DialogInstance
+    DO HandleStructuredChange
+  END
+END
+
+IF CHUI_ConsumeCompletion(?CHUIComplete{PROP:Handle},CompletedInstance,DialogResult)
+  IF CompletedInstance = DialogInstance
+    CASE DialogResult
+    OF CHUI_RESULT_APPLY
+      DO ApplyStructuredDialog
+      DO ApplyCompuHostRuntimeChanges
+    OF CHUI_RESULT_OK
+      DO ApplyStructuredDialog
+      DO ApplyCompuHostRuntimeChanges
+      DialogInstance = 0
+    OF CHUI_RESULT_CANCEL
+      DialogInstance = 0
+    END
+  END
+END</code></pre><p><strong>Apply and OK:</strong> both copy values back and invoke the same CompuHost runtime update. Apply leaves the dialog open; OK closes it. <strong>Cancel:</strong> closes without accepting edits made after the most recent Apply.</p></section>
+
+<section><h2>6. Entry recipes</h2><table><tr><th>Type</th><th>Value/Options</th><th>Result</th></tr><tr><td><code>CHUI_ENTRY</code>, <code>CHUI_NUMBER</code></td><td>Text or numeric text</td><td>Editable field</td></tr><tr><td><code>CHUI_DROPDOWN</code></td><td><code>key=Label|key=Label</code></td><td>Modern themed selector</td></tr><tr><td><code>CHUI_CHECKBOX</code></td><td><code>0</code> or <code>1</code></td><td>Modern check box</td></tr><tr><td><code>CHUI_SLIDER</code></td><td>Value plus Minimum/Maximum/Step</td><td>Modern slider</td></tr><tr><td><code>CHUI_COLOR</code></td><td>Clarion/CDE color text</td><td>Color popup and returned color</td></tr><tr><td><code>CHUI_FILE</code></td><td>Path; Options contains filters</td><td>Read-only path plus Browse; returns only selected file</td></tr><tr><td><code>CHUI_FOLDER</code></td><td>Path</td><td>Read-only path plus Browse; returns only selected folder</td></tr><tr><td><code>CHUI_ACTION</code></td><td>Entry ID identifies action</td><td>Calls Clarion without closing</td></tr><tr><td><code>CHUI_FONT</code></td><td><code>Face|StyleMask|Color</code></td><td>One FONT button; face, bold, italic, underline, color</td></tr></table>
+<pre><code>DialogEntries[N].Type = CHUI_FILE
+DialogEntries[N].Caption = 'Background image'
+DialogEntries[N].Options = '*.png=PNG images|*.jpg;*.jpeg=JPEG images|*.*=All files'
+DialogEntries[N].Value = BackgroundImage
+
+DialogEntries[N+1].Type = CHUI_FOLDER
+DialogEntries[N+1].Caption = 'Recording folder'
+DialogEntries[N+1].Value = RecordingFolder</code></pre></section>
+
+<section><h2>7. One-button font selection per heading</h2><p>Keep one Clarion group per CDE heading, pre-populate it, encode the group into the font entry's ordinary <code>Value</code>, and decode it on Apply/OK. No extra ABI structure is needed.</p><pre><code>CDEHeadingFont GROUP,DIM(5)
+Face             CSTRING(128)
+Style            ULONG
+Color            ULONG
+               END
+
+! Associated text entry has ID 310.
+DialogEntries[F].Type = CHUI_FONT
+DialogEntries[F].ID = 410
+DialogEntries[F].ParentID = 300
+DialogEntries[F].DependencyID = 310
+DialogEntries[F].DependencyOperator = CHUI_DEPEND_NONE
+DialogEntries[F].Caption = 'Heading line 1 font'
+DialogEntries[F].Value = CLIP(CDEHeadingFont[1].Face) &amp; '|' &amp; |
+                         CDEHeadingFont[1].Style &amp; '|' &amp; CDEHeadingFont[1].Color</code></pre><p>The dependency association places a compact <code>FONT...</code> button beside the heading text. The popup intentionally omits size; CDE continues to use its fixed size argument:</p><pre><code>CDEResult = CDE_SetBackdropLine(CDE_BACKDROP_LINE_HEADING,BackdropText, |
+  CDEHeadingFont[1].Face,60,CDEHeadingFont[1].Color, |
+  CDEHeadingFont[1].Style,100)</code></pre></section>
+
+<section><h2>8. Live change and action handling</h2><p>Set the live-change flag only on settings that are safe and useful to preview immediately. In <code>HandleStructuredChange</code>, use <code>ChangedEntryID</code> to apply only that setting. For existing selectors such as audio-device discovery, declare a <code>CHUI_ACTION</code>; call the Clarion routine in <code>HandleStructuredAction</code>, then return the selected stable value to the open dialog:</p><pre><code>SelectedValue = SelectedAudioDeviceID
+CHUI_SetEntryValue(DialogInstance,AudioDeviceEntryID,SelectedValue)</code></pre><p class="note warn">Do not send pointers to Clarion queues or temporary variables. Send stable text values through <code>Value</code>; keep all dynamic queue and device discovery logic in Clarion.</p></section>
+
+<section><h2>9. Migration sequence</h2><ol><li>Back up the current CompuHost V4 EXE folder and verify no CompuHost/test process is running.</li><li>Install the RC DLL, Clarion import library, include, and sample.</li><li>Add the include and MAP imports.</li><li>Add the exact procedure structures and hidden callback button.</li><li>Copy the sample routines and replace test variables with actual CompuHost globals one group at a time.</li><li>Wire existing audio/CDE procedures through action and change IDs; do not open old child dialogs.</li><li>Regenerate, clean-build, and verify the DLL hash beside the EXE.</li><li>Test Cancel first, then Apply, then OK, then restart persistence.</li></ol></section>
+
+<section><h2>10. Release-candidate test checklist</h2><ul><li>Open only one Setup instance; owner stays responsive.</li><li>Resize to minimum and maximum; OK, Cancel, and Apply remain visible.</li><li>Hover navigation, buttons, dropdowns, and checks; styling remains modern.</li><li>Exercise two-panel and advanced three-panel pages; no empty panels.</li><li>Verify dependencies enable/hide correctly.</li><li>File and folder Browse return only the selected path.</li><li>Each heading FONT button opens pre-populated; face/style/color return together; preview is visible; size is unavailable.</li><li>Live-change entries trigger the correct entry ID only.</li><li>Action entries call Clarion and update the open dialog.</li><li>Cancel preserves pre-open values; Apply commits and remains open; OK commits and closes.</li><li>Closing CompuHost is blocked while Setup is open.</li></ul></section>
+
+<section><h2>Troubleshooting</h2><table><tr><th>Symptom</th><th>Check</th></tr><tr><td>Unresolved <code>CHUI_*</code></td><td>Regenerate the Clarion-format <code>CHTheme.lib</code> from the RC DLL and link that library, not the Visual C++ import library.</td></tr><tr><td>Validation returns -1</td><td>ABI equates, exact field order, array address, EntryCount, and CRLF include.</td></tr><tr><td>Old DLL loads</td><td>Hash the DLL beside the running EXE; Clarion generation can recopy accessory files.</td></tr><tr><td>Font dialog not populated</td><td>Pass <code>Face|StyleMask|Color</code> in the font entry Value before opening.</td></tr><tr><td>Apply does nothing</td><td>Consume completion, handle <code>CHUI_RESULT_APPLY</code>, copy values, and call the runtime apply routine.</td></tr></table></section>
+</main></body></html>

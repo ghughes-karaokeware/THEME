@@ -2,6 +2,9 @@
 
 ## 2026-08-08
 
+- Rebuilt the Structured Setup Win32 Release candidate with zero warnings/errors and passed the 32-bit ABI validation/round-trip harness.
+- Backed up every active deployed DLL/library/include/document target, then hash-verified the RC DLL across ten runtime locations and the Clarion import library across nine linker locations.
+- Added a dedicated hand-holding Structured Setup integration guide and linked it from the main Modern Theme Extensions guide; installed both guides and the paste-ready Clarion sample in the Karaokeware accessory documentation folder.
 - Deferred hiding the font-size controls until after the Windows common font dialog completes native initialization, allowing it to create the Sample preview before removing size from the user interface.
 - Restored the Windows font dialog's populated Sample preview by retaining an internal 12-point preview selection while continuing to hide the size label and selector from users.
 - Integrated color into the single `CHUI_FONT` popup and composite value, now returned as `Face name|CDE style mask|COLORREF`; a separate `CHUI_COLOR` entry is no longer required for each heading.

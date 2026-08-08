@@ -100,7 +100,7 @@
   <header>
     <h1>CompuHost V4 Modern Theme Extensions</h1>
     <p>Installation, configuration, runtime use, and troubleshooting for the Karaokeware Win32 modernization package for Clarion 10.</p>
-    <div class="meta">Applies to CHModernTheme.tpl, CHTheme.dll, ButtonSubclass.dll, and the CHModern helper classes · Updated August 6, 2026</div>
+    <div class="meta">Applies to CHModernTheme.tpl, CHTheme.dll, ButtonSubclass.dll, and the CHModern helper classes · Updated August 8, 2026</div>
   </header>
 
   <div class="layout">
@@ -110,6 +110,7 @@
       <a href="#install">Installation</a>
       <a href="#quick-start">Quick start</a>
       <a href="#compuhost-v4">CompuHost V4 implementation</a>
+      <a href="#structured-setup">Structured Setup dialog</a>
       <a href="#global">Global extension</a>
       <a href="#window">Window extension</a>
       <a href="#buttons">Buttons</a>
@@ -386,6 +387,19 @@ CHBUTTON_ROLE_DESTRUCTIVE  EQUATE(2)
 CHBUTTON_ROLE_TOOLBAR      EQUATE(3)
 CHBUTTON_ROLE_SELECTED     EQUATE(4)
 CHBUTTON_ROLE_SUCCESS      EQUATE(5)</code></pre>
+      </section>
+
+      <section id="structured-setup">
+        <h2>Structured Setup dialog</h2>
+        <p><code>CHTheme.dll</code> now provides a modeless, resizable, modern Setup dialog driven by a flat Clarion array. It supports two- and three-panel navigation, built-in icons, dependencies, Apply/OK/Cancel, live-change and action callbacks, color, file, folder, and combined font/style/color selection.</p>
+        <ol>
+          <li>Include <code>CHStructuredDialogTypes.inc</code> and declare the <code>CHUI_*</code> DLL procedures in the global MAP.</li>
+          <li>Populate one <code>CHUI_DIALOG_HEADER</code> and a contiguous array of <code>CHUI_ENTRY_RECORD</code> records.</li>
+          <li>Validate ABI version and record sizes, then call <code>CHUI_OpenDialog</code>.</li>
+          <li>Use one hidden Clarion button to consume action, live-change, Apply, OK, and Cancel notifications.</li>
+          <li>Copy accepted <code>DialogEntries[].Value</code> fields into application variables on Apply or OK. Cancel preserves the values accepted by the most recent Apply.</li>
+        </ol>
+        <div class="callout good"><strong>Complete implementation guide:</strong> see <a href="CompuHost-V4-Structured-Setup-Dialog.html">CompuHost V4 Structured Setup Dialog</a> for declarations, complete event code, entry recipes, font-group handling, migration, testing, and troubleshooting.</div>
       </section>
 
       <section id="deployment">

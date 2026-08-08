@@ -25,6 +25,12 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 
 ## Structured Dialog development
 
+- Release candidate rebuilt and staged on 2026-08-08. Win32 Release completed with zero warnings and zero errors; ABI validation and round-trip harness passed.
+- The verified RC DLL was hash-matched in all ten active CHTheme runtime locations, including the Clarion accessory bin, CompuHost V4, and Test_App targets.
+- The Clarion-format import library was hash-matched in all nine active linker locations. The shared CRLF include was installed in the accessory, CompuHost V4, and Test_Setup locations.
+- A timestamped pre-deployment recovery package with source-path/hash manifest and post-deployment verification CSV is stored under `clarion-theme-recovery/outputs/CHTheme-RC-PreDeploy-20260808-112556`.
+- The dedicated `CompuHost-V4-Structured-Setup-Dialog.html` guide and paste-ready Clarion sample are installed in the Karaokeware accessory documentation folder.
+
 - The legacy `Setup.TXA` has been reviewed as an analysis-only source.
 - The Structured Dialog ABI, ownership rules, completion mechanism, dependency scope, and Test_Setup proof-of-concept boundary are recorded in `STRUCTURED_DIALOG_DESIGN.md`.
 - The legacy control and behavior inventory is recorded in `SETUP_TXA_ANALYSIS.md`.
@@ -33,7 +39,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - Win32 Release builds with deployment disabled and zero compiler warnings.
 - The 32-bit `/W4 /WX` harness verifies ABI sizes, valid and invalid record walking, Cancel preservation, OK write-back to the same structure, and completion consumption.
 - `Test_Setup.app` itself remains unmodified. The test-only DLL, shared include, and paste-ready integration guide are staged beside it for manual Clarion integration.
-- The proof-of-concept DLL has not been installed into CompuHost or the Clarion accessory directories.
+- The Structured Setup release candidate is installed into CompuHost and the Clarion accessory directories for migration testing; it is not yet designated a production release.
 - The first visual-refinement pass preserves ABI `00010000H` while enabling native dark-window/control styling, preventing value-label clipping, correcting the advanced-panel heading, and adding a functional Back button that returns from the third panel to the selected page.
 - Value-label columns are measured from the active panel's captions using the dialog font, remain aligned within each panel, and preserve a minimum 100-pixel input width.
 - After using Back from a nested detail panel, the selected page exposes an `Advanced Settings...` button that reopens that same third panel.
