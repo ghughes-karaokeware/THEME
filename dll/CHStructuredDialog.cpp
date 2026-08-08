@@ -59,7 +59,10 @@ struct DialogData
     HWND pages = nullptr;
     HFONT font = nullptr;
     HBRUSH backgroundBrush = nullptr;
+    HBRUSH surfaceBrush = nullptr;
+    HBRUSH navigationBrush = nullptr;
     HBRUSH inputBrush = nullptr;
+    HBRUSH borderBrush = nullptr;
 };
 
 std::mutex g_mutex;
@@ -309,11 +312,16 @@ void DrawNavigationItem(DialogData& data, const DRAWITEMSTRUCT& item)
 {
     if (item.itemID == static_cast<UINT>(-1)) return;
     const bool selected = (item.itemState & ODS_SELECTED) != 0;
-    const COLORREF background = selected ? RGB(0, 116, 217) : RGB(8, 16, 24);
+    const COLORREF background = selected ? RGB(10, 92, 184) : RGB(16, 31, 46);
     const COLORREF foreground = selected ? RGB(255, 255, 255) : RGB(218, 229, 239);
     HBRUSH brush = CreateSolidBrush(background);
     FillRect(item.hDC, &item.rcItem, brush);
     DeleteObject(brush);
+    if (selected) {
+        HBRUSH border = CreateSolidBrush(RGB(31, 132, 239));
+        FrameRect(item.hDC, &item.rcItem, border);
+        DeleteObject(border);
+    }
 
     RuntimeEntry* entry = FindEntry(data, static_cast<DWORD>(item.itemData));
     RECT iconRect = item.rcItem;
@@ -735,8 +743,11 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
 
     switch (message) {
     case WM_CREATE: {
-        data->backgroundBrush = CreateSolidBrush(RGB(7, 13, 20));
-        data->inputBrush = CreateSolidBrush(RGB(8, 16, 24));
+        data->backgroundBrush = CreateSolidBrush(RGB(5, 13, 22));
+        data->surfaceBrush = CreateSolidBrush(RGB(13, 27, 40));
+        data->navigationBrush = CreateSolidBrush(RGB(16, 31, 46));
+        data->inputBrush = CreateSolidBrush(RGB(18, 34, 49));
+        data->borderBrush = CreateSolidBrush(RGB(39, 59, 77));
         const UINT dpi = GetDpiForWindow(window);
         data->font = CreateFontW(-MulDiv(9, dpi ? static_cast<int>(dpi) : 96, 72),
             0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
@@ -850,25 +861,48 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         HDC dc = reinterpret_cast<HDC>(wParam);
         SetBkMode(dc, TRANSPARENT);
         SetTextColor(dc, RGB(235, 241, 248));
-        return reinterpret_cast<LRESULT>(data->backgroundBrush);
+        return reinterpret_cast<LRESULT>(data->surfaceBrush);
     }
-    case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX: {
         HDC dc = reinterpret_cast<HDC>(wParam);
-        SetBkColor(dc, RGB(8, 16, 24));
+        SetBkColor(dc, RGB(16, 31, 46));
+        SetTextColor(dc, RGB(235, 241, 248));
+        return reinterpret_cast<LRESULT>(data->navigationBrush);
+    }
+    case WM_CTLCOLOREDIT: {
+        HDC dc = reinterpret_cast<HDC>(wParam);
+        SetBkColor(dc, RGB(18, 34, 49));
         SetTextColor(dc, RGB(235, 241, 248));
         return reinterpret_cast<LRESULT>(data->inputBrush);
     }
     case WM_ERASEBKGND: {
         RECT client{};
         GetClientRect(window, &client);
-        FillRect(reinterpret_cast<HDC>(wParam), &client, data->backgroundBrush);
+        HDC dc = reinterpret_cast<HDC>(wParam);
+        FillRect(dc, &client, data->backgroundBrush);
+        const RECT categoryPanel{ 14, 40, 242, 486 };
+        const RECT pagePanel{ 250, 40, 462, 486 };
+        const RECT contentPanel{ 466, 40, 832, 486 };
+        FillRect(dc, &categoryPanel, data->surfaceBrush);
+        FillRect(dc, &pagePanel, data->surfaceBrush);
+        FillRect(dc, &contentPanel, data->surfaceBrush);
+        FrameRect(dc, &categoryPanel, data->borderBrush);
+        FrameRect(dc, &pagePanel, data->borderBrush);
+        FrameRect(dc, &contentPanel, data->borderBrush);
+        if (client.right > 900) {
+            const RECT detailPanel{ 834, 40, client.right - 14, 486 };
+            FillRect(dc, &detailPanel, data->surfaceBrush);
+            FrameRect(dc, &detailPanel, data->borderBrush);
+        }
         return 1;
     }
     case WM_NCDESTROY:
         NotifyCompletion(*data);
         DeleteObject(data->backgroundBrush);
+        DeleteObject(data->surfaceBrush);
+        DeleteObject(data->navigationBrush);
         DeleteObject(data->inputBrush);
+        DeleteObject(data->borderBrush);
         DeleteObject(data->font);
         SetWindowLongPtrW(window, GWLP_USERDATA, 0);
         delete data;
