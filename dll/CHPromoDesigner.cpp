@@ -4,6 +4,7 @@
 #include <richedit.h>
 #include <commctrl.h>
 #include <commdlg.h>
+#include <dwmapi.h>
 #include <algorithm>
 #include <deque>
 #include <memory>
@@ -121,7 +122,7 @@ void Layout(Data& d)
 {
     RECT r{}; GetClientRect(d.window, &r); const int m = 20, top = 150, bottom = 72;
     MoveWindow(d.editor, m, top, std::max(100, static_cast<int>(r.right) - m * 2), std::max(80, static_cast<int>(r.bottom) - top - bottom), TRUE);
-    const int y=r.bottom-48;MoveWindow(GetDlgItem(d.window,ID_LOAD),20,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_SAVE),120,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_CLEAR),220,y,72,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_OK),r.right-190,y,78,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_CANCEL),r.right-102,y,78,32,TRUE);
+    const int y=r.bottom-48;MoveWindow(GetDlgItem(d.window,ID_LOAD),20,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_SAVE),120,y,92,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_OK),r.right-190,y,78,32,TRUE);MoveWindow(GetDlgItem(d.window,ID_CANCEL),r.right-102,y,78,32,TRUE);
 }
 LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -130,12 +131,14 @@ LRESULT CALLBACK Proc(HWND w, UINT msg, WPARAM wp, LPARAM lp)
     if (!d) return DefWindowProcW(w, msg, wp, lp);
     switch (msg) {
     case WM_CREATE: {
+        BOOL darkTitle=TRUE;DwmSetWindowAttribute(w,20,&darkTitle,sizeof(darkTitle));
         d->font = CreateFontW(-16,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");d->titleFont=CreateFontW(-20,0,0,0,FW_SEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
         auto button=[&](int id,const wchar_t* text,int x,int y,int width){HWND h=CreateWindowExW(0,L"BUTTON",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,x,y,width,30,w,reinterpret_cast<HMENU>(id),nullptr,nullptr);SendMessageW(h,WM_SETFONT,reinterpret_cast<WPARAM>(d->font),TRUE);SetWindowSubclass(h,ButtonSubclass,1,reinterpret_cast<DWORD_PTR>(d));};
-        button(ID_BOLD,L"B",20,72,36); button(ID_ITALIC,L"I",60,72,36); button(ID_UNDERLINE,L"U",100,72,36); button(ID_UNDO,L"Undo",150,72,58); button(ID_REDO,L"Redo",212,72,58);
-        button(ID_COLOR0,L"Default",282,72,62); for(int i=1;i<10;++i) button(ID_COLOR0+i,std::to_wstring(i).c_str(),348+(i-1)*38,72,34);
+        button(ID_BOLD,L"B",20,72,36);button(ID_ITALIC,L"I",60,72,36);button(ID_UNDERLINE,L"U",100,72,36);
+        for(int i=1;i<10;++i)button(ID_COLOR0+i,std::to_wstring(i).c_str(),150+(i-1)*38,72,34);
+        button(ID_UNDO,L"Undo",510,72,58);button(ID_REDO,L"Redo",572,72,58);button(ID_CLEAR,L"Clear",646,72,70);
         button(ID_AUTOLOAD,L"Auto-load selected Promo Trailer on startup",20,110,410);
-        button(ID_LOAD,L"Load",0,0,92); button(ID_SAVE,L"Save",0,0,92); button(ID_CLEAR,L"Clear",0,0,72);
+        button(ID_LOAD,L"Load",0,0,92);button(ID_SAVE,L"Save",0,0,92);
         button(ID_OK,L"OK",0,0,78); button(ID_CANCEL,L"Cancel",0,0,78);
         d->autoload=(d->caller->flags&CHPT_FLAG_AUTOLOAD)!=0;
         d->editor=CreateWindowExW(0,MSFTEDIT_CLASS,L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN,18,100,700,350,w,reinterpret_cast<HMENU>(ID_EDITOR),nullptr,nullptr);
