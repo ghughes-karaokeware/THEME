@@ -1,6 +1,8 @@
 # Visual Studio and C++ build output
 dll/bin/
 dll/obj/
+/bin/
+/obj/
 *.user
 *.suo
 *.VC.db

@@ -1,0 +1,683 @@
+#include "CHTheme.h"
+
+#include <commctrl.h>
+#include <algorithm>
+#include <atomic>
+#include <charconv>
+#include <deque>
+#include <mutex>
+#include <new>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace
+{
+constexpr DWORD kAbiVersion = 0x00010000;
+constexpr DWORD kMaximumEntries = 512;
+constexpr wchar_t kDialogClass[] = L"CHTheme.StructuredDialog";
+constexpr int kCategoryListId = 100;
+constexpr int kPageListId = 101;
+constexpr int kFirstDynamicId = 1000;
+
+struct Option { std::string value; std::wstring caption; };
+struct Completion { DWORD instanceId; LONG result; };
+
+struct RuntimeEntry
+{
+    CHUI_ENTRY_RECORD definition{};
+    size_t sourceIndex = 0;
+    std::string workingValue;
+    HWND control = nullptr;
+    HWND valueLabel = nullptr;
+};
+
+struct DialogData
+{
+    HWND window = nullptr;
+    HWND owner = nullptr;
+    HWND completionButton = nullptr;
+    CHUI_ENTRY_RECORD* callerEntries = nullptr;
+    DWORD instanceId = 0;
+    bool committed = false;
+    bool rendering = false;
+    DWORD selectedCategory = 0;
+    DWORD selectedPage = 0;
+    DWORD selectedDetail = 0;
+    std::wstring title;
+    std::vector<RuntimeEntry> entries;
+    std::unordered_map<DWORD, size_t> byId;
+    std::unordered_map<int, size_t> byControlId;
+    std::vector<HWND> dynamicWindows;
+    HWND categories = nullptr;
+    HWND pages = nullptr;
+    HFONT font = nullptr;
+    HBRUSH backgroundBrush = nullptr;
+    HBRUSH inputBrush = nullptr;
+};
+
+std::mutex g_mutex;
+std::unordered_map<HWND, HWND> g_byOwner;
+std::unordered_map<HWND, std::deque<Completion>> g_completions;
+std::atomic<DWORD> g_nextInstance{ 1 };
+
+bool IsTerminated(const char* value, size_t capacity)
+{
+    return value && std::find(value, value + capacity, '\0') != value + capacity;
+}
+
+std::wstring Utf8ToWide(const char* value)
+{
+    if (!value || !*value) return {};
+    const int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+        value, -1, nullptr, 0);
+    if (count <= 0) return {};
+    std::wstring result(static_cast<size_t>(count), L'\0');
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1,
+        result.data(), count);
+    result.pop_back();
+    return result;
+}
+
+std::string WideToUtf8(const wchar_t* value)
+{
+    if (!value || !*value) return {};
+    const int count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+        value, -1, nullptr, 0, nullptr, nullptr);
+    if (count <= 0) return {};
+    std::string result(static_cast<size_t>(count), '\0');
+    WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, -1,
+        result.data(), count, nullptr, nullptr);
+    result.pop_back();
+    return result;
+}
+
+std::vector<Option> ParseOptions(const char* definition)
+{
+    std::vector<Option> result;
+    const std::string source = definition ? definition : "";
+    size_t start = 0;
+    while (start <= source.size()) {
+        const size_t end = source.find('|', start);
+        const std::string item = source.substr(start,
+            end == std::string::npos ? std::string::npos : end - start);
+        if (!item.empty()) {
+            const size_t separator = item.find('=');
+            if (!separator || separator == std::string::npos ||
+                separator + 1 >= item.size()) return {};
+            const std::wstring caption = Utf8ToWide(item.substr(separator + 1).c_str());
+            if (caption.empty()) return {};
+            result.push_back({ item.substr(0, separator), caption });
+        }
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return result;
+}
+
+bool IsValueType(DWORD type)
+{
+    return type >= CHUI_ENTRY && type <= CHUI_SLIDER;
+}
+
+LONG Validate(const CHUI_DIALOG_HEADER* header, const CHUI_ENTRY_RECORD* entries)
+{
+    if (!header || (!entries && header->entryCount)) return CHUI_ERROR_ARGUMENT;
+    if (header->version != kAbiVersion) return CHUI_ERROR_VERSION;
+    if (header->headerSize != sizeof(CHUI_DIALOG_HEADER)) return CHUI_ERROR_HEADER_SIZE;
+    if (header->entrySize != sizeof(CHUI_ENTRY_RECORD)) return CHUI_ERROR_ENTRY_SIZE;
+    if (!header->entryCount || header->entryCount > kMaximumEntries)
+        return CHUI_ERROR_ENTRY_COUNT;
+    if (!IsTerminated(header->title, sizeof(header->title))) return CHUI_ERROR_STRING;
+
+    std::unordered_map<DWORD, DWORD> types;
+    for (DWORD index = 0; index < header->entryCount; ++index) {
+        const CHUI_ENTRY_RECORD& entry = entries[index];
+        if (entry.type < CHUI_PANEL ||
+            (entry.type > CHUI_SEPARATOR && !IsValueType(entry.type)))
+            return CHUI_ERROR_TYPE;
+        if (!entry.id || types.find(entry.id) != types.end()) return CHUI_ERROR_ID;
+        if (!IsTerminated(entry.caption, sizeof(entry.caption)) ||
+            !IsTerminated(entry.value, sizeof(entry.value)) ||
+            !IsTerminated(entry.defaultValue, sizeof(entry.defaultValue)) ||
+            !IsTerminated(entry.dependencyValue, sizeof(entry.dependencyValue)) ||
+            !IsTerminated(entry.options, sizeof(entry.options)) ||
+            !IsTerminated(entry.helpText, sizeof(entry.helpText))) return CHUI_ERROR_STRING;
+        if (entry.type == CHUI_DROPDOWN && ParseOptions(entry.options).empty())
+            return CHUI_ERROR_OPTIONS;
+        types.emplace(entry.id, entry.type);
+    }
+    for (DWORD index = 0; index < header->entryCount; ++index) {
+        const CHUI_ENTRY_RECORD& entry = entries[index];
+        if (!entry.parentId) {
+            if (entry.type != CHUI_PANEL) return CHUI_ERROR_PARENT;
+        } else {
+            auto parent = types.find(entry.parentId);
+            if (parent == types.end() ||
+                (parent->second != CHUI_PANEL && parent->second != CHUI_GROUP))
+                return CHUI_ERROR_PARENT;
+        }
+        if (entry.dependencyId && types.find(entry.dependencyId) == types.end())
+            return CHUI_ERROR_PARENT;
+        if (entry.dependencyOperator > CHUI_DEPEND_NOT_EQUAL)
+            return CHUI_ERROR_ARGUMENT;
+    }
+    return CHUI_STATUS_OK;
+}
+
+DialogData* GetData(HWND window)
+{
+    return reinterpret_cast<DialogData*>(GetWindowLongPtrW(window, GWLP_USERDATA));
+}
+
+RuntimeEntry* FindEntry(DialogData& data, DWORD id)
+{
+    auto found = data.byId.find(id);
+    return found == data.byId.end() ? nullptr : &data.entries[found->second];
+}
+
+void SetControlFont(HWND control, HFONT font)
+{
+    if (IsWindow(control)) SendMessageW(control, WM_SETFONT,
+        reinterpret_cast<WPARAM>(font), TRUE);
+}
+
+HWND AddWindow(DialogData& data, DWORD exStyle, const wchar_t* className,
+    const wchar_t* caption, DWORD style, int x, int y, int width, int height, int id)
+{
+    HWND control = CreateWindowExW(exStyle, className, caption,
+        WS_CHILD | WS_VISIBLE | style, x, y, width, height, data.window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)),
+        reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(data.window, GWLP_HINSTANCE)), nullptr);
+    SetControlFont(control, data.font);
+    if (control && id >= kFirstDynamicId) data.dynamicWindows.push_back(control);
+    return control;
+}
+
+std::vector<size_t> Children(DialogData& data, DWORD parentId, bool panels)
+{
+    std::vector<size_t> result;
+    for (size_t index = 0; index < data.entries.size(); ++index) {
+        const auto& definition = data.entries[index].definition;
+        if (definition.parentId == parentId &&
+            (definition.type == CHUI_PANEL) == panels) result.push_back(index);
+    }
+    return result;
+}
+
+void PopulateList(HWND list, DialogData& data, DWORD parentId)
+{
+    SendMessageW(list, LB_RESETCONTENT, 0, 0);
+    for (size_t index : Children(data, parentId, true)) {
+        const auto& entry = data.entries[index].definition;
+        const std::wstring caption = Utf8ToWide(entry.caption);
+        const int item = static_cast<int>(SendMessageW(list, LB_ADDSTRING, 0,
+            reinterpret_cast<LPARAM>(caption.c_str())));
+        SendMessageW(list, LB_SETITEMDATA, item, entry.id);
+    }
+    if (SendMessageW(list, LB_GETCOUNT, 0, 0) > 0)
+        SendMessageW(list, LB_SETCURSEL, 0, 0);
+}
+
+DWORD SelectedListId(HWND list)
+{
+    const LRESULT selected = SendMessageW(list, LB_GETCURSEL, 0, 0);
+    return selected == LB_ERR ? 0 : static_cast<DWORD>(
+        SendMessageW(list, LB_GETITEMDATA, selected, 0));
+}
+
+void ClearDynamic(DialogData& data)
+{
+    data.byControlId.clear();
+    for (HWND control : data.dynamicWindows)
+        if (IsWindow(control)) DestroyWindow(control);
+    data.dynamicWindows.clear();
+    for (auto& entry : data.entries) {
+        entry.control = nullptr;
+        entry.valueLabel = nullptr;
+    }
+}
+
+void ReadControl(RuntimeEntry& entry)
+{
+    if (!IsWindow(entry.control)) return;
+    switch (entry.definition.type) {
+    case CHUI_CHECKBOX:
+    case CHUI_RADIO:
+        entry.workingValue = SendMessageW(entry.control, BM_GETCHECK, 0, 0) == BST_CHECKED
+            ? "1" : "0";
+        break;
+    case CHUI_DROPDOWN: {
+        const int selected = static_cast<int>(SendMessageW(entry.control, CB_GETCURSEL, 0, 0));
+        const auto options = ParseOptions(entry.definition.options);
+        if (selected >= 0 && selected < static_cast<int>(options.size()))
+            entry.workingValue = options[static_cast<size_t>(selected)].value;
+        break;
+    }
+    case CHUI_SLIDER:
+        entry.workingValue = std::to_string(static_cast<int>(
+            SendMessageW(entry.control, TBM_GETPOS, 0, 0)));
+        break;
+    default: {
+        wchar_t value[512]{};
+        GetWindowTextW(entry.control, value, static_cast<int>(std::size(value)));
+        entry.workingValue = WideToUtf8(value);
+        break;
+    }
+    }
+}
+
+void ReadAllControls(DialogData& data)
+{
+    for (auto& entry : data.entries) ReadControl(entry);
+}
+
+bool DependencyMatches(DialogData& data, const RuntimeEntry& entry)
+{
+    if (!entry.definition.dependencyId ||
+        entry.definition.dependencyOperator == CHUI_DEPEND_NONE) return true;
+    RuntimeEntry* source = FindEntry(data, entry.definition.dependencyId);
+    if (!source) return false;
+    const bool equal = source->workingValue == entry.definition.dependencyValue;
+    return entry.definition.dependencyOperator == CHUI_DEPEND_EQUAL ? equal : !equal;
+}
+
+void ApplyDependencies(DialogData& data)
+{
+    for (auto& entry : data.entries) {
+        if (!IsWindow(entry.control)) continue;
+        const bool match = DependencyMatches(data, entry);
+        const bool enabled = !(entry.definition.flags & CHUI_FLAG_DISABLED) &&
+            (match || !(entry.definition.flags & CHUI_FLAG_DEPEND_DISABLE));
+        EnableWindow(entry.control, enabled);
+        if (entry.definition.flags & CHUI_FLAG_DEPEND_HIDE) {
+            ShowWindow(entry.control, match ? SW_SHOWNA : SW_HIDE);
+            if (IsWindow(entry.valueLabel))
+                ShowWindow(entry.valueLabel, match ? SW_SHOWNA : SW_HIDE);
+        }
+    }
+}
+
+void AddValueControl(DialogData& data, RuntimeEntry& entry, int& y,
+    int left, int width, bool detail)
+{
+    const int id = kFirstDynamicId + static_cast<int>(entry.sourceIndex);
+    const std::wstring caption = Utf8ToWide(entry.definition.caption);
+    const std::wstring value = Utf8ToWide(entry.workingValue.c_str());
+    const int labelWidth = detail ? 138 : 158;
+    const int controlX = left + labelWidth;
+    const int controlWidth = std::max(100, width - labelWidth - 18);
+
+    if (entry.definition.type == CHUI_HEADING) {
+        AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT,
+            left, y, width - 18, 24, id);
+        y += 32;
+        return;
+    }
+    if (entry.definition.type == CHUI_SEPARATOR) {
+        AddWindow(data, 0, L"STATIC", L"", SS_ETCHEDHORZ,
+            left, y + 8, width - 18, 2, id);
+        y += 20;
+        return;
+    }
+    if (entry.definition.type == CHUI_GROUP) {
+        AddWindow(data, 0, L"BUTTON", caption.c_str(), BS_GROUPBOX,
+            left, y, width - 18, 42, id);
+        y += 50;
+        return;
+    }
+    if (entry.definition.type == CHUI_CHECKBOX || entry.definition.type == CHUI_RADIO) {
+        const DWORD style = entry.definition.type == CHUI_CHECKBOX
+            ? BS_AUTOCHECKBOX : BS_AUTORADIOBUTTON;
+        entry.control = AddWindow(data, 0, L"BUTTON", caption.c_str(),
+            WS_TABSTOP | style, left, y, width - 18, 24, id);
+        SendMessageW(entry.control, BM_SETCHECK,
+            entry.workingValue == "1" ? BST_CHECKED : BST_UNCHECKED, 0);
+    } else {
+        AddWindow(data, 0, L"STATIC", caption.c_str(), SS_LEFT,
+            left, y + 5, labelWidth - 8, 22, id + 600);
+        if (entry.definition.type == CHUI_DROPDOWN) {
+            entry.control = AddWindow(data, 0, WC_COMBOBOXW, L"",
+                WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
+                controlX, y, controlWidth, 220, id);
+            const auto options = ParseOptions(entry.definition.options);
+            int selected = 0;
+            for (size_t option = 0; option < options.size(); ++option) {
+                SendMessageW(entry.control, CB_ADDSTRING, 0,
+                    reinterpret_cast<LPARAM>(options[option].caption.c_str()));
+                if (options[option].value == entry.workingValue)
+                    selected = static_cast<int>(option);
+            }
+            SendMessageW(entry.control, CB_SETCURSEL, selected, 0);
+        } else if (entry.definition.type == CHUI_SLIDER) {
+            entry.control = AddWindow(data, 0, TRACKBAR_CLASSW, L"",
+                WS_TABSTOP | TBS_HORZ | TBS_NOTICKS,
+                controlX, y, controlWidth - 44, 26, id);
+            SendMessageW(entry.control, TBM_SETRANGEMIN, FALSE, entry.definition.minimum);
+            SendMessageW(entry.control, TBM_SETRANGEMAX, FALSE, entry.definition.maximum);
+            SendMessageW(entry.control, TBM_SETLINESIZE, 0,
+                std::max<LONG>(1, entry.definition.step));
+            int numeric = entry.definition.minimum;
+            std::from_chars(entry.workingValue.data(),
+                entry.workingValue.data() + entry.workingValue.size(), numeric);
+            SendMessageW(entry.control, TBM_SETPOS, TRUE, numeric);
+            entry.valueLabel = AddWindow(data, 0, L"STATIC", value.c_str(), SS_RIGHT,
+                controlX + controlWidth - 40, y + 5, 38, 20, id + 700);
+        } else {
+            entry.control = AddWindow(data, WS_EX_CLIENTEDGE, L"EDIT", value.c_str(),
+                WS_TABSTOP | ES_AUTOHSCROLL, controlX, y, controlWidth, 24, id);
+        }
+    }
+    data.byControlId[id] = entry.sourceIndex;
+    y += 34;
+}
+
+void Render(DialogData& data)
+{
+    data.rendering = true;
+    ClearDynamic(data);
+    const auto details = Children(data, data.selectedPage, true);
+    data.selectedDetail = details.empty() ? 0 : data.entries[details.front()].definition.id;
+    const bool hasDetail = data.selectedDetail != 0;
+
+    int y = 82;
+    for (size_t index : Children(data, data.selectedPage, false))
+        AddValueControl(data, data.entries[index], y, 474, 350, false);
+    if (hasDetail) {
+        RuntimeEntry* detail = FindEntry(data, data.selectedDetail);
+        if (detail) {
+            const std::wstring heading = L"Advanced — " +
+                Utf8ToWide(detail->definition.caption);
+            AddWindow(data, 0, L"STATIC", heading.c_str(), SS_LEFT,
+                842, 48, 336, 24, kFirstDynamicId + 550);
+        }
+        y = 82;
+        for (size_t index : Children(data, data.selectedDetail, false))
+            AddValueControl(data, data.entries[index], y, 842, 340, true);
+    }
+    SetWindowPos(data.window, nullptr, 0, 0, hasDetail ? 1220 : 850, 590,
+        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    const int buttonOffset = hasDetail ? 370 : 0;
+    SetWindowPos(GetDlgItem(data.window, IDOK), nullptr, 674 + buttonOffset, 500,
+        76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(GetDlgItem(data.window, IDCANCEL), nullptr, 758 + buttonOffset, 500,
+        76, 30, SWP_NOZORDER | SWP_NOACTIVATE);
+    data.rendering = false;
+    ApplyDependencies(data);
+    InvalidateRect(data.window, nullptr, TRUE);
+}
+
+bool ValidateWorkingValues(DialogData& data)
+{
+    for (const auto& entry : data.entries) {
+        if ((entry.definition.flags & CHUI_FLAG_REQUIRED) && entry.workingValue.empty()) {
+            MessageBoxW(data.window, L"A required value is missing.", data.title.c_str(),
+                MB_OK | MB_ICONWARNING);
+            return false;
+        }
+        if (entry.definition.type == CHUI_NUMBER || entry.definition.type == CHUI_SLIDER) {
+            LONG number = 0;
+            const auto parsed = std::from_chars(entry.workingValue.data(),
+                entry.workingValue.data() + entry.workingValue.size(), number);
+            if (parsed.ec != std::errc{} ||
+                parsed.ptr != entry.workingValue.data() + entry.workingValue.size() ||
+                number < entry.definition.minimum || number > entry.definition.maximum) {
+                MessageBoxW(data.window, L"A numeric value is outside its permitted range.",
+                    data.title.c_str(), MB_OK | MB_ICONWARNING);
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+void Complete(DialogData& data, LONG result)
+{
+    ReadAllControls(data);
+    if (result == CHUI_RESULT_OK) {
+        if (!ValidateWorkingValues(data)) return;
+        for (const auto& entry : data.entries) {
+            if (IsValueType(entry.definition.type))
+                strncpy_s(data.callerEntries[entry.sourceIndex].value,
+                    entry.workingValue.c_str(), _TRUNCATE);
+        }
+        data.committed = true;
+    }
+    DestroyWindow(data.window);
+}
+
+void NotifyCompletion(DialogData& data)
+{
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_byOwner.erase(data.owner);
+        g_completions[data.completionButton].push_back({ data.instanceId,
+            data.committed ? CHUI_RESULT_OK : CHUI_RESULT_CANCEL });
+    }
+    HWND parent = GetParent(data.completionButton);
+    if (IsWindow(parent) && IsWindow(data.completionButton))
+        PostMessageW(parent, WM_COMMAND,
+            MAKEWPARAM(GetDlgCtrlID(data.completionButton), BN_CLICKED),
+            reinterpret_cast<LPARAM>(data.completionButton));
+}
+
+LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    DialogData* data = GetData(window);
+    if (message == WM_NCCREATE) {
+        data = reinterpret_cast<DialogData*>(
+            reinterpret_cast<CREATESTRUCTW*>(lParam)->lpCreateParams);
+        data->window = window;
+        SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(data));
+    }
+    if (!data) return DefWindowProcW(window, message, wParam, lParam);
+
+    switch (message) {
+    case WM_CREATE: {
+        data->backgroundBrush = CreateSolidBrush(RGB(7, 13, 20));
+        data->inputBrush = CreateSolidBrush(RGB(8, 16, 24));
+        const UINT dpi = GetDpiForWindow(window);
+        data->font = CreateFontW(-MulDiv(9, dpi ? static_cast<int>(dpi) : 96, 72),
+            0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        data->categories = AddWindow(*data, 0, L"LISTBOX", L"",
+            WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+            18, 48, 220, 430, kCategoryListId);
+        data->pages = AddWindow(*data, 0, L"LISTBOX", L"",
+            WS_TABSTOP | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+            254, 48, 202, 430, kPageListId);
+        AddWindow(*data, 0, L"BUTTON", L"OK", WS_TABSTOP | BS_DEFPUSHBUTTON,
+            674, 500, 76, 30, IDOK);
+        AddWindow(*data, 0, L"BUTTON", L"Cancel", WS_TABSTOP | BS_PUSHBUTTON,
+            758, 500, 76, 30, IDCANCEL);
+        PopulateList(data->categories, *data, 0);
+        data->selectedCategory = SelectedListId(data->categories);
+        PopulateList(data->pages, *data, data->selectedCategory);
+        data->selectedPage = SelectedListId(data->pages);
+        Render(*data);
+        return 0;
+    }
+    case WM_COMMAND: {
+        const int id = LOWORD(wParam);
+        const int notification = HIWORD(wParam);
+        if (id == IDOK && notification == BN_CLICKED) {
+            Complete(*data, CHUI_RESULT_OK);
+            return 0;
+        }
+        if (id == IDCANCEL && notification == BN_CLICKED) {
+            Complete(*data, CHUI_RESULT_CANCEL);
+            return 0;
+        }
+        if (id == kCategoryListId && notification == LBN_SELCHANGE) {
+            ReadAllControls(*data);
+            data->selectedCategory = SelectedListId(data->categories);
+            PopulateList(data->pages, *data, data->selectedCategory);
+            data->selectedPage = SelectedListId(data->pages);
+            Render(*data);
+            return 0;
+        }
+        if (id == kPageListId && notification == LBN_SELCHANGE) {
+            ReadAllControls(*data);
+            data->selectedPage = SelectedListId(data->pages);
+            Render(*data);
+            return 0;
+        }
+        if (!data->rendering && id >= kFirstDynamicId &&
+            (notification == BN_CLICKED || notification == CBN_SELCHANGE ||
+             notification == EN_CHANGE)) {
+            ReadAllControls(*data);
+            ApplyDependencies(*data);
+        }
+        return 0;
+    }
+    case WM_HSCROLL:
+        if (!data->rendering) {
+            ReadAllControls(*data);
+            for (auto& entry : data->entries) {
+                if (entry.control == reinterpret_cast<HWND>(lParam) &&
+                    IsWindow(entry.valueLabel))
+                    SetWindowTextW(entry.valueLabel,
+                        Utf8ToWide(entry.workingValue.c_str()).c_str());
+            }
+            ApplyDependencies(*data);
+        }
+        return 0;
+    case WM_CLOSE:
+        Complete(*data, CHUI_RESULT_CANCEL);
+        return 0;
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN: {
+        HDC dc = reinterpret_cast<HDC>(wParam);
+        SetBkMode(dc, TRANSPARENT);
+        SetTextColor(dc, RGB(235, 241, 248));
+        return reinterpret_cast<LRESULT>(data->backgroundBrush);
+    }
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX: {
+        HDC dc = reinterpret_cast<HDC>(wParam);
+        SetBkColor(dc, RGB(8, 16, 24));
+        SetTextColor(dc, RGB(235, 241, 248));
+        return reinterpret_cast<LRESULT>(data->inputBrush);
+    }
+    case WM_ERASEBKGND: {
+        RECT client{};
+        GetClientRect(window, &client);
+        FillRect(reinterpret_cast<HDC>(wParam), &client, data->backgroundBrush);
+        return 1;
+    }
+    case WM_NCDESTROY:
+        NotifyCompletion(*data);
+        DeleteObject(data->backgroundBrush);
+        DeleteObject(data->inputBrush);
+        DeleteObject(data->font);
+        SetWindowLongPtrW(window, GWLP_USERDATA, 0);
+        delete data;
+        return 0;
+    }
+    return DefWindowProcW(window, message, wParam, lParam);
+}
+
+bool EnsureDialogClass()
+{
+    static ATOM atom = 0;
+    if (atom) return true;
+    HMODULE module = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        reinterpret_cast<LPCWSTR>(&DialogProc), &module);
+    WNDCLASSEXW wc{ sizeof(wc) };
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = DialogProc;
+    wc.hInstance = module;
+    wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    wc.lpszClassName = kDialogClass;
+    atom = RegisterClassExW(&wc);
+    return atom || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
+}
+}
+
+DWORD __stdcall CHUI_GetAbiVersion() { return kAbiVersion; }
+DWORD __stdcall CHUI_GetHeaderSize() { return sizeof(CHUI_DIALOG_HEADER); }
+DWORD __stdcall CHUI_GetEntrySize() { return sizeof(CHUI_ENTRY_RECORD); }
+
+LONG __stdcall CHUI_ValidateDialog(const CHUI_DIALOG_HEADER* header,
+    const CHUI_ENTRY_RECORD* entries)
+{
+    return Validate(header, entries);
+}
+
+LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
+    CHUI_ENTRY_RECORD* entries, HWND completionButton)
+{
+    const LONG valid = Validate(header, entries);
+    if (valid != CHUI_STATUS_OK) return valid;
+    if (!IsWindow(ownerWindow) || !IsWindow(completionButton)) return CHUI_ERROR_ARGUMENT;
+    if (!EnsureDialogClass()) return CHUI_ERROR_WINDOW;
+
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        auto existing = g_byOwner.find(ownerWindow);
+        if (existing != g_byOwner.end() && IsWindow(existing->second)) {
+            SetForegroundWindow(existing->second);
+            return CHUI_ERROR_ALREADY_OPEN;
+        }
+    }
+
+    auto* data = new (std::nothrow) DialogData();
+    if (!data) return CHUI_ERROR_WINDOW;
+    data->owner = ownerWindow;
+    data->completionButton = completionButton;
+    data->callerEntries = entries;
+    data->instanceId = g_nextInstance.fetch_add(1);
+    if (!data->instanceId) data->instanceId = g_nextInstance.fetch_add(1);
+    data->title = Utf8ToWide(header->title);
+    if (data->title.empty()) data->title = L"Structured Dialog";
+    data->entries.reserve(header->entryCount);
+    for (DWORD index = 0; index < header->entryCount; ++index) {
+        RuntimeEntry runtime{};
+        runtime.definition = entries[index];
+        runtime.sourceIndex = index;
+        runtime.workingValue = entries[index].value[0]
+            ? entries[index].value : entries[index].defaultValue;
+        data->byId.emplace(runtime.definition.id, index);
+        data->entries.push_back(std::move(runtime));
+    }
+    header->instanceId = data->instanceId;
+
+    HMODULE module = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        reinterpret_cast<LPCWSTR>(&DialogProc), &module);
+    HWND window = CreateWindowExW(WS_EX_APPWINDOW, kDialogClass, data->title.c_str(),
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+        CW_USEDEFAULT, CW_USEDEFAULT, 850, 590, ownerWindow, nullptr, module, data);
+    if (!window) {
+        delete data;
+        return CHUI_ERROR_WINDOW;
+    }
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_byOwner[ownerWindow] = window;
+    }
+    ShowWindow(window, SW_SHOW);
+    UpdateWindow(window);
+    return static_cast<LONG>(data->instanceId);
+}
+
+LONG __stdcall CHUI_ConsumeCompletion(HWND completionButton,
+    DWORD* instanceId, LONG* result)
+{
+    if (!completionButton || !instanceId || !result) return FALSE;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    auto found = g_completions.find(completionButton);
+    if (found == g_completions.end() || found->second.empty()) return FALSE;
+    const Completion completion = found->second.front();
+    found->second.pop_front();
+    if (found->second.empty()) g_completions.erase(found);
+    *instanceId = completion.instanceId;
+    *result = completion.result;
+    return TRUE;
+}

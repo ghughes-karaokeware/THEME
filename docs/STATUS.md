@@ -28,7 +28,12 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - The legacy `Setup.TXA` has been reviewed as an analysis-only source.
 - The Structured Dialog ABI, ownership rules, completion mechanism, dependency scope, and Test_Setup proof-of-concept boundary are recorded in `STRUCTURED_DIALOG_DESIGN.md`.
 - The legacy control and behavior inventory is recorded in `SETUP_TXA_ANALYSIS.md`.
-- No Structured Dialog DLL source or Test_Setup embeds have been changed yet.
+- The isolated version-1 proof of concept is implemented in `dll/CHStructuredDialog.cpp` with six `CHUI_*` exports.
+- The ABI is fixed at version `00010000H`, a 256-byte header, and a 1,408-byte entry record.
+- Win32 Release builds with deployment disabled and zero compiler warnings.
+- The 32-bit `/W4 /WX` harness verifies ABI sizes, valid and invalid record walking, Cancel preservation, OK write-back to the same structure, and completion consumption.
+- `Test_Setup.app` itself remains unmodified. The test-only DLL, shared include, and paste-ready integration guide are staged beside it for manual Clarion integration.
+- The proof-of-concept DLL has not been installed into CompuHost or the Clarion accessory directories.
 
 ## Known build caveat
 

@@ -18,6 +18,63 @@ enum CHSliderOrientation
     CHSLIDER_VERTICAL = 1
 };
 
+enum CHUIEntryType
+{
+    CHUI_PANEL = 1, CHUI_GROUP = 2, CHUI_HEADING = 3, CHUI_SEPARATOR = 4,
+    CHUI_ENTRY = 10, CHUI_NUMBER = 11, CHUI_DROPDOWN = 12,
+    CHUI_CHECKBOX = 13, CHUI_RADIO = 14, CHUI_SLIDER = 15
+};
+
+enum CHUIResult { CHUI_RESULT_CANCEL = 0, CHUI_RESULT_OK = 1 };
+
+enum CHUIEntryFlags
+{
+    CHUI_FLAG_DISABLED = 0x00000001, CHUI_FLAG_REQUIRED = 0x00000002,
+    CHUI_FLAG_RESTART_REQUIRED = 0x00000004,
+    CHUI_FLAG_DEPEND_DISABLE = 0x00000008, CHUI_FLAG_DEPEND_HIDE = 0x00000010
+};
+
+enum CHUIDependencyOperator
+{
+    CHUI_DEPEND_NONE = 0, CHUI_DEPEND_EQUAL = 1, CHUI_DEPEND_NOT_EQUAL = 2
+};
+
+enum CHUIStatus
+{
+    CHUI_STATUS_OK = 1, CHUI_ERROR_ARGUMENT = -1, CHUI_ERROR_VERSION = -2,
+    CHUI_ERROR_HEADER_SIZE = -3, CHUI_ERROR_ENTRY_SIZE = -4,
+    CHUI_ERROR_ENTRY_COUNT = -5, CHUI_ERROR_STRING = -6,
+    CHUI_ERROR_TYPE = -7, CHUI_ERROR_ID = -8, CHUI_ERROR_PARENT = -9,
+    CHUI_ERROR_OPTIONS = -10, CHUI_ERROR_ALREADY_OPEN = -11,
+    CHUI_ERROR_WINDOW = -12
+};
+
+#pragma pack(push, 1)
+struct CHUI_DIALOG_HEADER
+{
+    DWORD version, headerSize, entrySize, entryCount, flags, instanceId;
+    char title[128];
+    char reserved[104];
+};
+
+struct CHUI_ENTRY_RECORD
+{
+    DWORD type, id, parentId, flags, dependencyId, dependencyOperator;
+    LONG minimum, maximum, step;
+    DWORD reservedNumber;
+    char caption[128];
+    char value[128];
+    char defaultValue[128];
+    char dependencyValue[128];
+    char options[512];
+    char helpText[256];
+    char reserved[88];
+};
+#pragma pack(pop)
+
+static_assert(sizeof(CHUI_DIALOG_HEADER) == 256, "CHUI header ABI changed");
+static_assert(sizeof(CHUI_ENTRY_RECORD) == 1408, "CHUI entry ABI changed");
+
 BOOL __stdcall CHTheme_AttachWindow(HWND window);
 BOOL __stdcall CHTheme_DetachWindow(HWND window);
 DWORD __stdcall CHTheme_GetWindowsBuild();
@@ -87,6 +144,15 @@ BOOL __stdcall CHTheme_SetFlatOptionChoiceBounds(HWND maskWindow, int choice,
 BOOL __stdcall CHTheme_SetFlatOptionChoice(HWND maskWindow, int selected);
 int __stdcall CHTheme_GetFlatOptionChoice(HWND maskWindow);
 BOOL __stdcall CHTheme_DestroyFlatOptionMask(HWND maskWindow);
+DWORD __stdcall CHUI_GetAbiVersion();
+DWORD __stdcall CHUI_GetHeaderSize();
+DWORD __stdcall CHUI_GetEntrySize();
+LONG __stdcall CHUI_ValidateDialog(const CHUI_DIALOG_HEADER* header,
+    const CHUI_ENTRY_RECORD* entries);
+LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
+    CHUI_ENTRY_RECORD* entries, HWND completionButton);
+LONG __stdcall CHUI_ConsumeCompletion(HWND completionButton,
+    DWORD* instanceId, LONG* result);
 
 #ifdef __cplusplus
 }

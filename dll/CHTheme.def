@@ -58,3 +58,9 @@ EXPORTS
     CHTheme_SetFlatOptionChoice = _CHTheme_SetFlatOptionChoice@8
     CHTheme_GetFlatOptionChoice = _CHTheme_GetFlatOptionChoice@4
     CHTheme_DestroyFlatOptionMask = _CHTheme_DestroyFlatOptionMask@4
+    CHUI_GetAbiVersion        = _CHUI_GetAbiVersion@0
+    CHUI_GetHeaderSize        = _CHUI_GetHeaderSize@0
+    CHUI_GetEntrySize         = _CHUI_GetEntrySize@0
+    CHUI_ValidateDialog       = _CHUI_ValidateDialog@8
+    CHUI_OpenDialog           = _CHUI_OpenDialog@16
+    CHUI_ConsumeCompletion    = _CHUI_ConsumeCompletion@12

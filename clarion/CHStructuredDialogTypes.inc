@@ -1,0 +1,70 @@
+CHUI_ABI_VERSION          EQUATE(00010000H)
+
+CHUI_PANEL                EQUATE(1)
+CHUI_GROUP                EQUATE(2)
+CHUI_HEADING              EQUATE(3)
+CHUI_SEPARATOR            EQUATE(4)
+CHUI_ENTRY                EQUATE(10)
+CHUI_NUMBER               EQUATE(11)
+CHUI_DROPDOWN             EQUATE(12)
+CHUI_CHECKBOX             EQUATE(13)
+CHUI_RADIO                EQUATE(14)
+CHUI_SLIDER               EQUATE(15)
+
+CHUI_RESULT_CANCEL        EQUATE(0)
+CHUI_RESULT_OK            EQUATE(1)
+
+CHUI_FLAG_DISABLED        EQUATE(00000001H)
+CHUI_FLAG_REQUIRED        EQUATE(00000002H)
+CHUI_FLAG_RESTART_REQUIRED EQUATE(00000004H)
+CHUI_FLAG_DEPEND_DISABLE  EQUATE(00000008H)
+CHUI_FLAG_DEPEND_HIDE     EQUATE(00000010H)
+
+CHUI_DEPEND_NONE          EQUATE(0)
+CHUI_DEPEND_EQUAL         EQUATE(1)
+CHUI_DEPEND_NOT_EQUAL     EQUATE(2)
+
+CHUI_STATUS_OK            EQUATE(1)
+CHUI_ERROR_ARGUMENT       EQUATE(-1)
+CHUI_ERROR_VERSION        EQUATE(-2)
+CHUI_ERROR_HEADER_SIZE    EQUATE(-3)
+CHUI_ERROR_ENTRY_SIZE     EQUATE(-4)
+CHUI_ERROR_ENTRY_COUNT    EQUATE(-5)
+CHUI_ERROR_STRING         EQUATE(-6)
+CHUI_ERROR_TYPE           EQUATE(-7)
+CHUI_ERROR_ID             EQUATE(-8)
+CHUI_ERROR_PARENT         EQUATE(-9)
+CHUI_ERROR_OPTIONS        EQUATE(-10)
+CHUI_ERROR_ALREADY_OPEN   EQUATE(-11)
+CHUI_ERROR_WINDOW         EQUATE(-12)
+
+CHUI_DIALOG_HEADER GROUP,TYPE
+Version                 ULONG
+HeaderSize              ULONG
+EntrySize               ULONG
+EntryCount              ULONG
+Flags                   ULONG
+InstanceID              ULONG
+Title                   CSTRING(128)
+Reserved                STRING(104)
+                     END
+
+CHUI_ENTRY_RECORD GROUP,TYPE
+Type                    ULONG
+ID                      ULONG
+ParentID                ULONG
+Flags                   ULONG
+DependencyID            ULONG
+DependencyOperator      ULONG
+Minimum                 LONG
+Maximum                 LONG
+Step                    LONG
+ReservedNumber          ULONG
+Caption                 CSTRING(128)
+Value                   CSTRING(128)
+DefaultValue            CSTRING(128)
+DependencyValue         CSTRING(128)
+Options                 CSTRING(512)
+HelpText                CSTRING(256)
+Reserved                STRING(88)
+                     END
