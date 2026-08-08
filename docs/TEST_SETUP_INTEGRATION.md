@@ -27,7 +27,13 @@ CHUI_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DialogR
      END
 ```
 
-Create the Clarion-compatible `CHTheme.LIB` from the new DLL exports before linking, as with the project's other CHTheme exports.
+Create the Clarion-compatible `CHTheme.LIB` from the candidate DLL before linking, as with the project's other CHTheme exports. In the Test_Setup folder, use this protected copy as LIBMaker's input:
+
+```text
+F:\Invicion Software Code\Clarion 10 Projects\Test_App\Test_Setup\StructuredDialogCandidate\CHTheme.dll
+```
+
+Do not use the DLL that Clarion copies from the accessory directory during generation: until the candidate is promoted, that copy is the older production DLL and contains no `CHUI_*` exports. Clarion generation/build may overwrite the DLL beside `Test_Setup.exe`; after compiling and before running, restore the protected candidate DLL beside the EXE. The correct candidate SHA-256 is `C11391CAA218FE5A82C18049AA42A7829B365C446F8BCE0B39ED67C5796C7CF4`.
 
 ## 3. Main window controls
 

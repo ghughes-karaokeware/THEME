@@ -15,3 +15,4 @@
 - Corrected `CHStructuredDialogTypes.inc` to Clarion-compatible ASCII/Windows CRLF line endings and added Git attributes that preserve CRLF for Clarion source formats.
 - Corrected the Test_Setup external `MODULE('CHTheme.dll')` examples to use Clarion MAP prototype syntax without the invalid `PROCEDURE` keyword.
 - Simplified the Clarion test ABI declarations to equates plus procedure-local GROUPs passed through `ADDRESS()` and replaced illegal button-embed `EXIT` statements with `CYCLE`.
+- Documented that Clarion generation can overwrite the test DLL with the older accessory copy and established a protected `StructuredDialogCandidate` DLL as the LIBMaker and post-build runtime source.
