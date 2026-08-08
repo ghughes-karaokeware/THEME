@@ -58,6 +58,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - `CHUI_FILE` and `CHUI_FOLDER` entries render an integrated read-only path field and themed Browse button, use the Windows `IFileDialog` selector, and transact through their ordinary 4,096-byte `DialogEntries[].Value`. They use the same `CHUI_ValidateDialog` and `CHUI_OpenDialog` APIs as all other entries.
 - `CHUI_FONT` opens a conventional Windows font popup with installed faces, style selection, integrated color, and populated preview while omitting font size. Its `Face name|style mask|color` value directly preserves CDE style flags outside Bold/Italic/Underline, and remains transactional under Apply/OK/Cancel.
 - Font entries can associate with an existing text entry by ID and render as an inline `FONT...` button on the same row, allowing a compact selector for every CompuHost heading without separate color rows.
+- The font popup retains an internal 12-point size solely to drive the Windows Sample preview; size controls remain hidden and the selected size is never returned or applied.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

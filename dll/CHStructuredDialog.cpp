@@ -628,7 +628,7 @@ bool ChooseEntryFont(DialogData& data, RuntimeEntry& entry)
     picker.iPointSize = 120;
     picker.rgbColors = static_cast<COLORREF>(color);
     picker.Flags = CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT |
-        CF_ENABLEHOOK | CF_NOSIZESEL | CF_EFFECTS;
+        CF_ENABLEHOOK | CF_EFFECTS;
     picker.lpfnHook = FontDialogHook;
     if (!ChooseFontW(&picker)) return false;
 
