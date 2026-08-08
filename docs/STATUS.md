@@ -59,6 +59,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - `CHUI_FONT` opens a conventional Windows font popup with installed faces, style selection, integrated color, and populated preview while omitting font size. Its `Face name|style mask|color` value directly preserves CDE style flags outside Bold/Italic/Underline, and remains transactional under Apply/OK/Cancel.
 - Font entries can associate with an existing text entry by ID and render as an inline `FONT...` button on the same row, allowing a compact selector for every CompuHost heading without separate color rows.
 - The font popup retains an internal 12-point size solely to drive the Windows Sample preview; size controls remain hidden and the selected size is never returned or applied.
+- The preview-corrected DLL is staged in Test_Setup's `StructuredDialogCandidate` folder and verified byte-for-byte by SHA-256; CompuHost and Clarion accessory deployment remain untouched.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat
