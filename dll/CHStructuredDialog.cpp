@@ -31,6 +31,7 @@ constexpr int kResetAllButtonId = 105;
 constexpr int kFirstDynamicId = 1000;
 constexpr wchar_t kHoverProperty[] = L"CHTheme.StructuredHover";
 constexpr UINT kSetEntryValueMessage = WM_APP + 0x351;
+constexpr UINT kFinalizeFontDialogMessage = WM_APP + 0x352;
 
 struct Option { std::string value; std::wstring caption; };
 struct Completion { DWORD instanceId; LONG result; };
@@ -596,6 +597,8 @@ std::wstring FontButtonCaption(const std::string& value)
 UINT_PTR CALLBACK FontDialogHook(HWND dialog, UINT message, WPARAM, LPARAM)
 {
     if (message == WM_INITDIALOG) {
+        PostMessageW(dialog, kFinalizeFontDialogMessage, 0, 0);
+    } else if (message == kFinalizeFontDialogMessage) {
         ShowWindow(GetDlgItem(dialog, stc3), SW_HIDE);
         ShowWindow(GetDlgItem(dialog, cmb3), SW_HIDE);
         ShowWindow(GetDlgItem(dialog, chx1), SW_HIDE);

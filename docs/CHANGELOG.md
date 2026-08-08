@@ -2,6 +2,7 @@
 
 ## 2026-08-08
 
+- Deferred hiding the font-size controls until after the Windows common font dialog completes native initialization, allowing it to create the Sample preview before removing size from the user interface.
 - Restored the Windows font dialog's populated Sample preview by retaining an internal 12-point preview selection while continuing to hide the size label and selector from users.
 - Integrated color into the single `CHUI_FONT` popup and composite value, now returned as `Face name|CDE style mask|COLORREF`; a separate `CHUI_COLOR` entry is no longer required for each heading.
 - Added optional inline font-button association: a `CHUI_FONT` entry linked to a text entry by `DependencyID` renders a compact `FONT...` button on the same row.
