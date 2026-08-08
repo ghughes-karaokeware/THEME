@@ -21,14 +21,17 @@ int main(int argc, char** argv)
         const CHUI_ENTRY_RECORD*);
     using Open = LONG(__stdcall*)(HWND, CHUI_DIALOG_HEADER*, CHUI_ENTRY_RECORD*, HWND);
     using Consume = LONG(__stdcall*)(HWND, DWORD*, LONG*);
+    using ConsumeChange = LONG(__stdcall*)(HWND, DWORD*, DWORD*);
     const GetValue getVersion = Load<GetValue>(module, "CHUI_GetAbiVersion");
     const GetValue getHeaderSize = Load<GetValue>(module, "CHUI_GetHeaderSize");
     const GetValue getEntrySize = Load<GetValue>(module, "CHUI_GetEntrySize");
     const Validate validate = Load<Validate>(module, "CHUI_ValidateDialog");
     const Open openDialog = Load<Open>(module, "CHUI_OpenDialog");
     const Consume consume = Load<Consume>(module, "CHUI_ConsumeCompletion");
+    const ConsumeChange consumeChange = Load<ConsumeChange>(module,
+        "CHUI_ConsumeChange");
     if (!getVersion || !getHeaderSize || !getEntrySize || !validate ||
-        !openDialog || !consume) return 4;
+        !openDialog || !consume || !consumeChange) return 4;
 
     if (getVersion() != 0x00010000 ||
         getHeaderSize() != sizeof(CHUI_DIALOG_HEADER) ||
@@ -99,6 +102,7 @@ int main(int argc, char** argv)
         result != CHUI_RESULT_CANCEL || std::strcmp(entries[2].value, "SHARED")) return 12;
 
     entries[2].type = CHUI_CHECKBOX;
+    entries[2].flags = CHUI_FLAG_LIVE_NOTIFY;
     strcpy_s(entries[2].caption, "Enabled");
     strcpy_s(entries[2].value, "1");
     entries[2].options[0] = '\0';
@@ -109,6 +113,13 @@ int main(int argc, char** argv)
     HWND checkbox = GetDlgItem(dialog, 1002);
     if (!checkbox) return 15;
     SendMessageW(checkbox, BM_SETCHECK, BST_UNCHECKED, 0);
+    SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(1002, BN_CLICKED),
+        reinterpret_cast<LPARAM>(checkbox));
+    DWORD changedInstance = 0;
+    DWORD changedEntry = 0;
+    if (!consumeChange(notification, &changedInstance, &changedEntry) ||
+        changedInstance != static_cast<DWORD>(okInstance) || changedEntry != 111 ||
+        std::strcmp(entries[2].value, "0")) return 18;
     HWND okButton = GetDlgItem(dialog, IDOK);
     SendMessageW(dialog, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED),
         reinterpret_cast<LPARAM>(okButton));

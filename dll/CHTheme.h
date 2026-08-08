@@ -32,7 +32,8 @@ enum CHUIEntryFlags
 {
     CHUI_FLAG_DISABLED = 0x00000001, CHUI_FLAG_REQUIRED = 0x00000002,
     CHUI_FLAG_RESTART_REQUIRED = 0x00000004,
-    CHUI_FLAG_DEPEND_DISABLE = 0x00000008, CHUI_FLAG_DEPEND_HIDE = 0x00000010
+    CHUI_FLAG_DEPEND_DISABLE = 0x00000008, CHUI_FLAG_DEPEND_HIDE = 0x00000010,
+    CHUI_FLAG_LIVE_NOTIFY = 0x00000020
 };
 
 enum CHUIDependencyOperator
@@ -166,6 +167,8 @@ LONG __stdcall CHUI_OpenDialog(HWND ownerWindow, CHUI_DIALOG_HEADER* header,
     CHUI_ENTRY_RECORD* entries, HWND completionButton);
 LONG __stdcall CHUI_ConsumeCompletion(HWND completionButton,
     DWORD* instanceId, LONG* result);
+LONG __stdcall CHUI_ConsumeChange(HWND completionButton,
+    DWORD* instanceId, DWORD* entryId);
 
 #ifdef __cplusplus
 }

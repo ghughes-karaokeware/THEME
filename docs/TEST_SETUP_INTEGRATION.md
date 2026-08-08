@@ -24,6 +24,7 @@ CHUI_GetEntrySize(),ULONG,PASCAL,RAW,NAME('CHUI_GetEntrySize')
 CHUI_ValidateDialog(LONG HeaderAddress,LONG EntriesAddress),LONG,PASCAL,RAW,NAME('CHUI_ValidateDialog')
 CHUI_OpenDialog(LONG OwnerHwnd,LONG HeaderAddress,LONG EntriesAddress,LONG CompletionButtonHwnd),LONG,PASCAL,RAW,NAME('CHUI_OpenDialog')
 CHUI_ConsumeCompletion(LONG CompletionButtonHwnd,*ULONG InstanceID,*LONG DialogResult),LONG,PASCAL,RAW,NAME('CHUI_ConsumeCompletion')
+CHUI_ConsumeChange(LONG CompletionButtonHwnd,*ULONG InstanceID,*ULONG EntryID),LONG,PASCAL,RAW,NAME('CHUI_ConsumeChange')
      END
 ```
 

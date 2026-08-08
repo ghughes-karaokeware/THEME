@@ -43,6 +43,7 @@ Continue broad bug testing of the Theme and ButtonSubclass DLL integration. Pres
 - The window now uses distinct background, raised panel, navigation, and input colors with bordered panel cards and higher-contrast selected navigation rows.
 - Win32 Release and the 32-bit ABI/round-trip harness both pass after the visual-refinement changes.
 - `CHUI_COLOR` now provides an owner-drawn color swatch and native Windows color-selection dialog. The selected Clarion `LONG`/`COLORREF` value is transactional and is returned only after the setup dialog is accepted.
+- Entries can opt into real-time Clarion notification with `CHUI_FLAG_LIVE_NOTIFY`; `CHUI_ConsumeChange` distinguishes those events from final completion and returns the dialog instance plus changed entry ID.
 - Win32 Release and the 32-bit ABI/validation/round-trip harness pass with zero warnings after the color-entry addition; deployment remains pending manual test approval.
 
 ## Known build caveat

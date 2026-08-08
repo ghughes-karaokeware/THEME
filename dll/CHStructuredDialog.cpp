@@ -28,6 +28,7 @@ constexpr int kFirstDynamicId = 1000;
 
 struct Option { std::string value; std::wstring caption; };
 struct Completion { DWORD instanceId; LONG result; };
+struct Change { DWORD instanceId; DWORD entryId; };
 
 struct RuntimeEntry
 {
@@ -69,6 +70,7 @@ struct DialogData
 std::mutex g_mutex;
 std::unordered_map<HWND, HWND> g_byOwner;
 std::unordered_map<HWND, std::deque<Completion>> g_completions;
+std::unordered_map<HWND, std::deque<Change>> g_changes;
 std::atomic<DWORD> g_nextInstance{ 1 };
 
 bool IsTerminated(const char* value, size_t capacity)
@@ -579,6 +581,23 @@ void ApplyDependencies(DialogData& data)
     }
 }
 
+void NotifyLiveChange(DialogData& data, RuntimeEntry& entry)
+{
+    if (!(entry.definition.flags & CHUI_FLAG_LIVE_NOTIFY)) return;
+    strncpy_s(data.callerEntries[entry.sourceIndex].value,
+        entry.workingValue.c_str(), _TRUNCATE);
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_changes[data.completionButton].push_back({ data.instanceId,
+            entry.definition.id });
+    }
+    HWND parent = GetParent(data.completionButton);
+    if (IsWindow(parent) && IsWindow(data.completionButton))
+        PostMessageW(parent, WM_COMMAND,
+            MAKEWPARAM(GetDlgCtrlID(data.completionButton), BN_CLICKED),
+            reinterpret_cast<LPARAM>(data.completionButton));
+}
+
 int LabelWidth(DialogData& data, const std::vector<size_t>& children,
     int minimum, int panelWidth)
 {
@@ -779,6 +798,12 @@ void Complete(DialogData& data, LONG result)
                     entry.workingValue.c_str(), _TRUNCATE);
         }
         data.committed = true;
+    } else {
+        for (const auto& entry : data.entries) {
+            if (IsValueType(entry.definition.type))
+                strncpy_s(data.callerEntries[entry.sourceIndex].value,
+                    entry.definition.value, _TRUNCATE);
+        }
     }
     DestroyWindow(data.window);
 }
@@ -892,7 +917,8 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             notification == BN_CLICKED) {
             RuntimeEntry& entry = data->entries[dynamic->second];
             if (entry.definition.type == CHUI_COLOR) {
-                ChooseEntryColor(*data, entry);
+                if (ChooseEntryColor(*data, entry))
+                    NotifyLiveChange(*data, entry);
                 ApplyDependencies(*data);
                 return 0;
             }
@@ -901,6 +927,9 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             (notification == BN_CLICKED || notification == CBN_SELCHANGE ||
              notification == EN_CHANGE)) {
             ReadAllControls(*data);
+            const auto changed = data->byControlId.find(id);
+            if (changed != data->byControlId.end())
+                NotifyLiveChange(*data, data->entries[changed->second]);
             ApplyDependencies(*data);
         }
         return 0;
@@ -910,9 +939,11 @@ LRESULT CALLBACK DialogProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             ReadAllControls(*data);
             for (auto& entry : data->entries) {
                 if (entry.control == reinterpret_cast<HWND>(lParam) &&
-                    IsWindow(entry.valueLabel))
+                    IsWindow(entry.valueLabel)) {
                     SetWindowTextW(entry.valueLabel,
                         Utf8ToWide(entry.workingValue.c_str()).c_str());
+                    NotifyLiveChange(*data, entry);
+                }
             }
             ApplyDependencies(*data);
         }
@@ -1099,5 +1130,20 @@ LONG __stdcall CHUI_ConsumeCompletion(HWND completionButton,
     if (found->second.empty()) g_completions.erase(found);
     *instanceId = completion.instanceId;
     *result = completion.result;
+    return TRUE;
+}
+
+LONG __stdcall CHUI_ConsumeChange(HWND completionButton,
+    DWORD* instanceId, DWORD* entryId)
+{
+    if (!IsWindow(completionButton) || !instanceId || !entryId) return FALSE;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    auto found = g_changes.find(completionButton);
+    if (found == g_changes.end() || found->second.empty()) return FALSE;
+    const Change change = found->second.front();
+    found->second.pop_front();
+    if (found->second.empty()) g_changes.erase(found);
+    *instanceId = change.instanceId;
+    *entryId = change.entryId;
     return TRUE;
 }

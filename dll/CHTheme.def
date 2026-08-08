@@ -64,3 +64,4 @@ EXPORTS
     CHUI_ValidateDialog       = _CHUI_ValidateDialog@8
     CHUI_OpenDialog           = _CHUI_OpenDialog@16
     CHUI_ConsumeCompletion    = _CHUI_ConsumeCompletion@12
+    CHUI_ConsumeChange        = _CHUI_ConsumeChange@12
